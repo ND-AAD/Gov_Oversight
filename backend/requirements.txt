@@ -1,24 +1,22 @@
-# LA 2028 RFP Monitor - Backend Dependencies
+# Backend requirements for LA 2028 RFP Monitor
 
-# Core web scraping
+# Web scraping and automation
 playwright==1.40.0
-beautifulsoup4==4.12.2
-lxml==4.9.3
-requests==2.31.0
 
 # Data processing and validation
-pydantic==2.5.2
+requests==2.31.0
+beautifulsoup4==4.12.2
+lxml==4.9.3
+
+# Data analysis and manipulation
+pandas==2.1.4
+numpy==1.25.2
+
+# Date and time handling
 python-dateutil==2.8.2
-validators==0.22.0
 
-# Text processing and categorization
-nltk==3.8.1
-textblob==0.17.1
-
-# Utilities
-click==8.1.7
-python-dotenv==1.0.0
-tqdm==4.66.1
+# Logging and configuration
+structlog==23.2.0
 
 # Testing
 pytest==7.4.3
@@ -29,3 +27,6 @@ pytest-playwright==0.4.3
 black==23.11.0
 flake8==6.1.0
 mypy==1.7.1
+
+# Optional: For advanced text processing
+regex==2023.10.3
