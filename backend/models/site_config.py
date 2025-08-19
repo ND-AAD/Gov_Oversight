@@ -24,6 +24,14 @@ class SiteStatus(Enum):
     DISABLED = "disabled"
 
 
+class FieldMappingStatus(Enum):
+    """Status of individual field mappings."""
+    WORKING = "working"           # Green - functioning properly
+    DEGRADED = "degraded"         # Yellow - working but with warnings
+    BROKEN = "broken"             # Red - requires user attention
+    UNTESTED = "untested"         # Gray - never been tested
+
+
 @dataclass
 class FieldMapping:
     """
@@ -48,6 +56,8 @@ class FieldMapping:
     last_validated: Optional[datetime] = None
     validation_errors: Optional[List[str]] = None
     expected_format: Optional[str] = None  # For dates, currencies, etc.
+    status: FieldMappingStatus = FieldMappingStatus.UNTESTED
+    consecutive_failures: int = 0         # Track consecutive extraction failures
     
     def __post_init__(self):
         """Validate field mapping after initialization."""
@@ -60,13 +70,18 @@ class FieldMapping:
         # Ensure data_type is enum
         if isinstance(self.data_type, str):
             self.data_type = DataType(self.data_type)
+        
+        # Ensure status is enum
+        if isinstance(self.status, str):
+            self.status = FieldMappingStatus(self.status)
     
     def is_valid(self) -> bool:
         """Check if this field mapping appears to be working."""
         return (
             self.confidence_score > 0.5 and
             len(self.validation_errors) == 0 and
-            self.selector is not None
+            self.selector is not None and
+            self.status in [FieldMappingStatus.WORKING, FieldMappingStatus.DEGRADED]
         )
     
     def add_validation_error(self, error: str) -> None:
@@ -76,12 +91,21 @@ class FieldMapping:
         
         self.validation_errors.append(error)
         self.confidence_score = max(0.0, self.confidence_score - 0.2)
+        self.consecutive_failures += 1
+        
+        # Update status based on failure count
+        if self.consecutive_failures >= 3:
+            self.status = FieldMappingStatus.BROKEN
+        elif self.consecutive_failures >= 1:
+            self.status = FieldMappingStatus.DEGRADED
     
     def clear_validation_errors(self) -> None:
         """Clear validation errors and restore confidence."""
         self.validation_errors = []
         self.confidence_score = min(1.0, self.confidence_score + 0.3)
         self.last_validated = datetime.now()
+        self.consecutive_failures = 0
+        self.status = FieldMappingStatus.WORKING
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -89,6 +113,7 @@ class FieldMapping:
         
         # Convert enums to strings
         data['data_type'] = self.data_type.value
+        data['status'] = self.status.value
         
         # Convert datetime to ISO string
         if self.last_validated:
@@ -102,6 +127,9 @@ class FieldMapping:
         # Convert string back to enum
         if 'data_type' in data:
             data['data_type'] = DataType(data['data_type'])
+        
+        if 'status' in data:
+            data['status'] = FieldMappingStatus(data['status'])
         
         # Convert ISO string back to datetime
         if data.get('last_validated'):
@@ -242,6 +270,46 @@ class SiteConfig:
         # Check if field mappings are valid
         valid_mappings = sum(1 for fm in self.field_mappings if fm.is_valid())
         return valid_mappings >= len(self.field_mappings) * 0.8  # 80% success rate
+    
+    def get_broken_field_mappings(self) -> List[FieldMapping]:
+        """Get list of field mappings that need user attention."""
+        return [fm for fm in self.field_mappings if fm.status == FieldMappingStatus.BROKEN]
+    
+    def get_degraded_field_mappings(self) -> List[FieldMapping]:
+        """Get list of field mappings that are working but have warnings."""
+        return [fm for fm in self.field_mappings if fm.status == FieldMappingStatus.DEGRADED]
+    
+    def has_critical_issues(self) -> bool:
+        """Check if site has broken field mappings that require immediate attention."""
+        broken_count = len(self.get_broken_field_mappings())
+        required_fields = self.get_required_fields()
+        
+        # Critical if any required field is broken
+        for fm in self.field_mappings:
+            if fm.alias.lower() in [rf.lower() for rf in required_fields]:
+                if fm.status == FieldMappingStatus.BROKEN:
+                    return True
+        
+        # Critical if too many fields are broken
+        if len(self.field_mappings) > 0:
+            broken_percentage = broken_count / len(self.field_mappings)
+            return broken_percentage > 0.5  # More than 50% broken
+        
+        return False
+    
+    def get_status_summary(self) -> Dict[str, int]:
+        """Get count of field mappings by status."""
+        summary = {
+            "working": 0,
+            "degraded": 0,
+            "broken": 0,
+            "untested": 0
+        }
+        
+        for fm in self.field_mappings:
+            summary[fm.status.value] += 1
+        
+        return summary
     
     def get_required_fields(self) -> List[str]:
         """Get list of field aliases that are considered required."""
