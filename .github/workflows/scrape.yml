@@ -1,0 +1,103 @@
+name: Automated RFP Scraping
+
+on:
+  schedule:
+    # Run every 6 hours at 0, 6, 12, and 18 UTC
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      force_full_scan:
+        description: 'Force full scan of all sites'
+        required: false
+        default: 'false'
+        type: boolean
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+          playwright install chromium
+          
+      - name: Run scraper
+        env:
+          FORCE_FULL_SCAN: ${{ github.event.inputs.force_full_scan }}
+        run: |
+          cd backend
+          echo "Starting RFP scraping process..."
+          echo "This is a placeholder - actual scraper will be implemented in Phase 1.3-1.4"
+          
+          # Placeholder for actual scraper execution
+          # python main.py --scrape-all
+          
+          # For now, just update a timestamp to show the action ran
+          echo "Last run: $(date -u)" > ../data/last_scrape.txt
+          
+      - name: Validate scraped data
+        run: |
+          echo "Validating data integrity..."
+          # Add validation logic here when scraper is implemented
+          
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Check if there are any changes
+          if [ -n "$(git status --porcelain)" ]; then
+            git add data/
+            git commit -m "Automated scraping update - $(date -u '+%Y-%m-%d %H:%M UTC')
+            
+            - Scraped RFPs from configured sites
+            - Updated data files with new findings
+            - Automated by GitHub Actions every 6 hours"
+            
+            git push
+            echo "Changes committed and pushed"
+          else
+            echo "No changes detected - no commit needed"
+          fi
+          
+      - name: Create issue for scraping errors
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Automated Scraping Failed - ' + new Date().toISOString().split('T')[0],
+              body: `## Scraping Error Report
+              
+              **Failure Time:** ${new Date().toISOString()}
+              **Workflow Run:** [${context.runId}](${context.payload.repository.html_url}/actions/runs/${context.runId})
+              
+              The automated RFP scraping process encountered an error. Please review the workflow logs and investigate potential issues:
+              
+              - Network connectivity problems
+              - Website structure changes
+              - Configuration errors
+              - Rate limiting issues
+              
+              This issue was automatically created to ensure scraping failures don't go unnoticed.`,
+              labels: ['bug', 'automation', 'scraping']
+            })

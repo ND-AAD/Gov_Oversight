@@ -1,0 +1,132 @@
+name: Deploy Documentation to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - 'WORK_PLAN.md'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+        
+      - name: Create documentation site
+        run: |
+          mkdir -p _site
+          
+          # Copy main documentation
+          cp README.md _site/index.md
+          cp WORK_PLAN.md _site/
+          cp LICENSE _site/
+          
+          # Copy docs folder if it exists
+          if [ -d "docs" ]; then
+            cp -r docs/* _site/
+          fi
+          
+          # Create a simple index.html that renders markdown
+          cat > _site/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>LA 2028 RFP Monitor - Government Oversight Tool</title>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.4.0/github-markdown-light.min.css">
+            <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+            <style>
+              body {
+                box-sizing: border-box;
+                min-width: 200px;
+                max-width: 980px;
+                margin: 0 auto;
+                padding: 45px;
+                background-color: #ffffff;
+              }
+              .markdown-body {
+                box-sizing: border-box;
+                min-width: 200px;
+                max-width: 980px;
+                margin: 0 auto;
+                padding: 45px;
+              }
+              .nav {
+                margin-bottom: 30px;
+                padding: 15px 0;
+                border-bottom: 1px solid #e1e4e8;
+              }
+              .nav a {
+                margin-right: 20px;
+                text-decoration: none;
+                color: #0366d6;
+                font-weight: 500;
+              }
+              .nav a:hover {
+                text-decoration: underline;
+              }
+              .badge {
+                display: inline-block;
+                padding: 2px 6px;
+                font-size: 12px;
+                font-weight: 500;
+                color: #ffffff;
+                background-color: #28a745;
+                border-radius: 3px;
+                margin-left: 8px;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="nav">
+              <a href="#main">Overview</a>
+              <a href="WORK_PLAN.md">Work Plan</a>
+              <a href="https://github.com/ND-AAD/Gov_Oversight">GitHub Repository</a>
+              <a href="https://github.com/ND-AAD/Gov_Oversight/issues">Report Issues</a>
+              <span class="badge">Public Oversight Tool</span>
+            </div>
+            <div id="content" class="markdown-body"></div>
+            
+            <script>
+              fetch('index.md')
+                .then(response => response.text())
+                .then(text => {
+                  document.getElementById('content').innerHTML = marked.parse(text);
+                })
+                .catch(error => {
+                  document.getElementById('content').innerHTML = '<p>Error loading documentation.</p>';
+                });
+            </script>
+          </body>
+          </html>
+          EOF
+          
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '_site'
+          
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

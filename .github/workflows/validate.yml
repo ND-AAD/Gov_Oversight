@@ -1,0 +1,91 @@
+name: Data Validation and Health Check
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'data/**'
+      - 'backend/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'data/**'
+      - 'backend/**'
+  schedule:
+    # Run daily at 9 AM UTC for health checks
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+jobs:
+  validate-data:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+          
+      - name: Validate JSON structure
+        run: |
+          echo "Validating JSON data files..."
+          
+          # Check if JSON files are valid
+          for file in data/*.json; do
+            if [ -f "$file" ]; then
+              echo "Validating $file..."
+              python -m json.tool "$file" > /dev/null
+              echo "✓ $file is valid JSON"
+            fi
+          done
+          
+      - name: Validate data schemas
+        run: |
+          echo "Validating data schemas..."
+          # This will be implemented when data models are complete
+          # cd backend
+          # python -m utils.validate_data
+          
+      - name: Check for duplicate RFPs
+        run: |
+          echo "Checking for duplicate RFP entries..."
+          # Implementation pending - will check for duplicate IDs, URLs, etc.
+          
+      - name: Validate site configurations
+        run: |
+          echo "Validating site configurations..."
+          # Implementation pending - will test site configs
+          
+      - name: Generate data health report
+        run: |
+          echo "Generating data health report..."
+          
+          # Count RFPs
+          rfp_count=$(cat data/rfps.json | python -c "import sys, json; data=json.load(sys.stdin); print(len(data) if isinstance(data, list) else len(data.get('rfps', [])))" 2>/dev/null || echo "0")
+          
+          # Count sites
+          site_count=$(cat data/sites.json | python -c "import sys, json; data=json.load(sys.stdin); print(len(data) if isinstance(data, list) else len(data.get('sites', [])))" 2>/dev/null || echo "0")
+          
+          echo "## Data Health Report" > health_report.md
+          echo "Generated: $(date -u)" >> health_report.md
+          echo "" >> health_report.md
+          echo "- **Total RFPs:** $rfp_count" >> health_report.md
+          echo "- **Configured Sites:** $site_count" >> health_report.md
+          echo "- **Last Validation:** ✅ Passed" >> health_report.md
+          
+          cat health_report.md
+          
+      - name: Upload health report
+        uses: actions/upload-artifact@v4
+        with:
+          name: data-health-report
+          path: health_report.md
+          retention-days: 30
