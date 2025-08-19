@@ -109,6 +109,12 @@ config/secrets.json
 /data/backups/
 /data/temp/
 
+# Test data (exclude large HTML files and sensitive test content)
+/data/test/
+backend/tests/test_real_world*.py
+backend/tests/test_rfp_discovery.py
+backend/demo_real_world.py
+
 # Test outputs
 test-results/
 test-reports/
