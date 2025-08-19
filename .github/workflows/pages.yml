@@ -46,6 +46,9 @@ jobs:
             cp -r docs/* _site/
           fi
           
+          # Add .nojekyll to prevent Jekyll processing
+          touch _site/.nojekyll
+          
           # Create a simple index.html that renders markdown
           cat > _site/index.html << 'EOF'
           <!DOCTYPE html>
