@@ -32,15 +32,17 @@ la-2028-rfp-monitor/
 - [x] README.md written
 - [x] Work plan documented
 
-### 1.2 Core Data Models ⏳
+### 1.2 Core Data Models ✅
 ```python
 @dataclass
 class FieldMapping:
     alias: str
     selector: str  
-    data_type: str
+    data_type: DataType
     training_value: str
     confidence_score: float
+    status: FieldMappingStatus  # NEW: working/degraded/broken/untested
+    consecutive_failures: int   # NEW: tracks consecutive failures
 
 @dataclass  
 class SiteConfig:
@@ -51,7 +53,8 @@ class SiteConfig:
     sample_rfp_url: str
     field_mappings: List[FieldMapping]
     last_tested: datetime
-    status: str
+    status: SiteStatus
+    test_results: TestResult    # NEW: comprehensive test tracking
 
 @dataclass
 class RFP:
@@ -63,14 +66,18 @@ class RFP:
     detected_at: datetime
     content_hash: str
     categories: List[str]
+    change_history: List[Dict]  # NEW: audit trail for changes
 ```
 
-**Status**: ⏳ In Progress
-- [ ] Create `backend/models/` directory
-- [ ] Implement `rfp.py` data model
-- [ ] Implement `site_config.py` data model
-- [ ] Add validation methods
-- [ ] Create serialization helpers
+**Status**: ✅ Complete
+- [x] Create `backend/models/` directory
+- [x] Implement `rfp.py` data model with change tracking
+- [x] Implement `site_config.py` data model with status indicators
+- [x] Add comprehensive validation methods (`validation.py`)
+- [x] Create serialization helpers (`serialization.py`, `DataManager`)
+- [x] Add structured error classes (`errors.py`)
+- [x] Implement Olympic surveillance keyword detection
+- [x] Add field mapping status system for UI indicators
 
 ### 1.3 Location-Binding Core Engine ⏳
 ```python
@@ -186,13 +193,13 @@ class LocationBinder:
 
 ---
 
-## Current Focus: Phase 1.2 - Core Data Models
+## Current Focus: Phase 1.3 - Location-Binding Core Engine
 
 **Next Steps**:
-1. Create backend directory structure
-2. Implement RFP and SiteConfig data models
-3. Add validation and serialization methods
-4. Begin location-binding engine development
+1. Implement LocationBinder class with value-to-location discovery
+2. Add robust selector generation with multiple fallbacks
+3. Create field mapping validation system
+4. Build user-friendly error reporting for broken mappings
 
 **Blockers**: None
 
