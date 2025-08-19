@@ -1,0 +1,41 @@
+/* App-specific styles for Gov_Oversight */
+
+.olympic-gradient {
+  background: linear-gradient(135deg, #0081C8 0%, #FCB131 100%);
+}
+
+.surveillance-alert {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Ensure proper table responsiveness */
+.overflow-x-auto {
+  scrollbar-width: thin;
+  scrollbar-color: #CBD5E0 #F7FAFC;
+}
+
+.overflow-x-auto::-webkit-scrollbar {
+  height: 8px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-track {
+  background: #F7FAFC;
+}
+
+.overflow-x-auto::-webkit-scrollbar-thumb {
+  background: #CBD5E0;
+  border-radius: 4px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-thumb:hover {
+  background: #A0AEC0;
+}

@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Gov_Oversight Custom Styles */
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+  
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+#root {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+}
+
+/* Surveillance Alert Styles */
+.alert-surveillance {
+  @apply bg-surveillance-warning border-surveillance-warning text-white;
+}
+
+.alert-olympic {
+  @apply bg-olympic-blue border-olympic-blue text-white;
+}
+
+.status-working {
+  @apply bg-green-500 text-white;
+}
+
+.status-degraded {
+  @apply bg-yellow-500 text-black;
+}
+
+.status-broken {
+  @apply bg-red-500 text-white;
+}
+
+.status-untested {
+  @apply bg-gray-500 text-white;
+}
