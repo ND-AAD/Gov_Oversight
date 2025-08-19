@@ -13,11 +13,15 @@ from dataclasses import dataclass
 from urllib.parse import urljoin, urlparse
 from datetime import datetime
 
-from ..models import (
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from models import (
     SiteConfig, FieldMapping, DataType, FieldMappingStatus,
-    ValidationResult, LocationBindingError, ScrapingError,
-    validate_css_selector
+    ValidationResult, LocationBindingError, ScrapingError
 )
+from models.validation import validate_css_selector
 
 logger = logging.getLogger(__name__)
 

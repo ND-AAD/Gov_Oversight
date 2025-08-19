@@ -15,7 +15,11 @@ from urllib.robotparser import RobotFileParser
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from ..models import SiteConfig, NetworkError, ScrapingError
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from models import SiteConfig, NetworkError, ScrapingError
 
 logger = logging.getLogger(__name__)
 

@@ -156,4 +156,3 @@ MIT License - See `LICENSE` file for details.
 
 ---
 
-**🔥 Built by activists, for activists. Transparency is our superpower.**

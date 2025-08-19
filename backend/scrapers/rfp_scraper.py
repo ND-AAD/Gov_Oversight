@@ -11,9 +11,13 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 import hashlib
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from .location_binder import LocationBinder
 from .base_scraper import BaseScraper
-from ..models import (
+from models import (
     SiteConfig, RFP, FieldMappingStatus, ValidationResult,
     ScrapingError, LocationBindingError, DataManager
 )
@@ -369,7 +373,7 @@ class RFPScraper:
         text_content = f"{extracted_data.get('title', '')} {extracted_data.get('description', '')}"
         
         # Use the Olympic relevance detection from validation module
-        from ..models.validation import validate_olympic_relevance
+        from models.validation import validate_olympic_relevance
         is_relevant, keywords, score = validate_olympic_relevance(text_content)
         
         if is_relevant:

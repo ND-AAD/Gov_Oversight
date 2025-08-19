@@ -130,6 +130,4 @@ Instead of fragile CSS selectors, our scraper learns from examples:
 
 ---
 
-**🔥 Built by activists, for activists. Transparency is our superpower.**
-
 *Last updated: December 16, 2024*
