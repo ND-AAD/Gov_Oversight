@@ -82,6 +82,14 @@ export function SiteManagement({ onNavigate }: SiteManagementProps) {
       return;
     }
 
+    // Check if we're in static mode (GitHub Pages)
+    const isStaticMode = window.location.hostname.includes('github.io');
+    
+    if (isStaticMode) {
+      toast.error('Site management requires API mode. In static mode (GitHub Pages), sites must be configured through code and deployment.');
+      return;
+    }
+
     try {
       const siteData = {
         name: newSite.name,
@@ -241,6 +249,11 @@ export function SiteManagement({ onNavigate }: SiteManagementProps) {
                 <p className="text-muted-foreground">
                   Configure and manage RFP scraper sites
                 </p>
+                {window.location.hostname.includes('github.io') && (
+                  <div className="mt-2 px-3 py-1 bg-yellow-100 text-yellow-800 text-sm rounded-md border border-yellow-200">
+                    📋 Static Mode: Site changes require code commits. Add sites via GitHub repository.
+                  </div>
+                )}
               </div>
             </div>
             
