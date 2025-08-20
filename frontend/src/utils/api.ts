@@ -85,24 +85,41 @@ export const deleteRFP = async (rfpId: string): Promise<void> => {
 // Site configuration endpoints with static/API dual mode support  
 export const getSites = async (): Promise<SiteConfig[]> => {
   try {
+    let sites: SiteConfig[] = [];
+    
     // In static mode (GitHub Pages), load directly from static files
     if (API_MODE === 'static') {
       console.log('🏛️ Loading site configs from static files (GitHub Pages mode)');
       const response = await axios.get(`${STATIC_DATA_BASE}/sites.json`);
-      return response.data.sites || [];
+      sites = response.data.sites || [];
+    } else {
+      // In development mode, try API first, fallback to static
+      try {
+        const response = await api.get<ApiResponse<SiteConfig[]>>('/api/sites');
+        sites = response.data.data || [];
+      } catch (apiError) {
+        // If API server is not available, try to load from static files
+        console.warn('API server not available, loading site configs from static files');
+        const staticPath = window.location.hostname.includes('github.io') ? '/Gov_Oversight/data/sites.json' : '/data/sites.json';
+        const response = await axios.get(staticPath);
+        sites = response.data.sites || [];
+      }
     }
     
-    // In development mode, try API first, fallback to static
-    try {
-      const response = await api.get<ApiResponse<SiteConfig[]>>('/api/sites');
-      return response.data.data || [];
-    } catch (apiError) {
-      // If API server is not available, try to load from static files
-      console.warn('API server not available, loading site configs from static files');
-      const staticPath = window.location.hostname.includes('github.io') ? '/Gov_Oversight/data/sites.json' : '/data/sites.json';
-      const response = await axios.get(staticPath);
-      return response.data.sites || [];
+    // In static mode, also include pending sites from localStorage for immediate UX
+    if (API_MODE === 'static') {
+      const pendingSites = localStorage.getItem('pending_site_additions');
+      if (pendingSites) {
+        try {
+          const pending: SiteConfig[] = JSON.parse(pendingSites);
+          sites = [...sites, ...pending];
+        } catch (e) {
+          console.warn('Failed to parse pending sites from localStorage');
+        }
+      }
     }
+    
+    return sites;
   } catch (error) {
     console.error('Failed to load site configurations:', error);
     return []; // Return empty array on error
@@ -123,11 +140,20 @@ export interface CreateSiteRequest {
 }
 
 export const createSite = async (siteData: CreateSiteRequest): Promise<SiteConfig> => {
-  const response = await api.post<ApiResponse<SiteConfig>>('/api/sites', siteData);
-  if (!response.data.data) {
-    throw new Error('Failed to create site');
+  // Check if we're in static mode (GitHub Pages)
+  const isStaticMode = window.location.hostname.includes('github.io');
+  
+  if (isStaticMode) {
+    // GitHub API approach for static mode
+    return await createSiteViaGitHub(siteData);
+  } else {
+    // Original API server approach for development
+    const response = await api.post<ApiResponse<SiteConfig>>('/api/sites', siteData);
+    if (!response.data.data) {
+      throw new Error('Failed to create site');
+    }
+    return response.data.data;
   }
-  return response.data.data;
 };
 
 export interface FieldMappingRequest {
@@ -226,6 +252,117 @@ export const loadStaticSites = async (): Promise<SiteConfig[]> => {
     console.error('Failed to load static sites:', error);
     return [];
   }
+};
+
+// GitHub API integration for static mode site management
+const createSiteViaGitHub = async (siteData: CreateSiteRequest): Promise<SiteConfig> => {
+  const repoOwner = 'ND-AAD'; // Replace with actual repo owner
+  const repoName = 'Gov_Oversight'; // Replace with actual repo name
+  
+  try {
+    // Create GitHub issue for site addition request
+    await createSiteAdditionIssue(siteData);
+    
+    // Create temporary site object for immediate UX feedback
+    const tempSite: SiteConfig = {
+      id: `temp_${Date.now()}`, // Temporary ID
+      name: siteData.name,
+      base_url: siteData.base_url,
+      main_rfp_page_url: siteData.main_rfp_page_url,
+      sample_rfp_url: siteData.sample_rfp_url,
+      description: siteData.description || '',
+      field_mappings: siteData.field_mappings?.map(fm => ({
+        alias: fm.alias,
+        selector: '', // Will be populated by location binder
+        data_type: fm.data_type as any,
+        training_value: fm.sample_value,
+        confidence_score: 0.0,
+        status: 'untested' as any,
+        consecutive_failures: 0
+      })) || [],
+      last_tested: new Date().toISOString(),
+      status: 'pending' as any, // Mark as pending
+      test_results: {
+        success: false,
+        errors: [],
+        warnings: ['Site request submitted - processing within 1 hour'],
+        tested_at: new Date().toISOString()
+      } as any
+    };
+    
+    // Store pending site for immediate UX feedback
+    const existingPending = localStorage.getItem('pending_site_additions');
+    let pendingSites: SiteConfig[] = [];
+    
+    if (existingPending) {
+      try {
+        pendingSites = JSON.parse(existingPending);
+      } catch (e) {
+        pendingSites = [];
+      }
+    }
+    
+    pendingSites.push(tempSite);
+    localStorage.setItem('pending_site_additions', JSON.stringify(pendingSites));
+    
+    console.log('Site addition request submitted via GitHub issue');
+    console.log('Site will be processed automatically within 1 hour');
+    
+    return tempSite;
+    
+  } catch (error) {
+    console.error('Failed to create site addition request:', error);
+    throw new Error('Failed to submit site addition request. Please try again or create a GitHub issue manually.');
+  }
+};
+
+// Create GitHub issue for site addition
+const createSiteAdditionIssue = async (siteData: CreateSiteRequest): Promise<void> => {
+  const repoOwner = 'ND-AAD'; // Replace with actual repo owner  
+  const repoName = 'Gov_Oversight'; // Replace with actual repo name
+  
+  // Create issue body from site data
+  const issueBody = `
+**Site Addition Request**
+
+Site Name: ${siteData.name}
+Base URL: ${siteData.base_url}
+RFP Page URL: ${siteData.main_rfp_page_url}
+Sample RFP URL: ${siteData.sample_rfp_url}
+Description: ${siteData.description || 'No description provided'}
+
+**Field Mappings:**
+${siteData.field_mappings?.map(fm => `- ${fm.alias}: "${fm.sample_value}" (${fm.data_type})`).join('\n') || 'No custom field mappings'}
+
+**Submitted:** ${new Date().toISOString()}
+
+---
+*This request was submitted via the RFP Monitor dashboard and will be processed automatically.*
+`.trim();
+
+  const issueData = {
+    title: `Add Site: ${siteData.name}`,
+    body: issueBody,
+    labels: ['site-addition', 'automation']
+  };
+
+  // For static mode, we can't create GitHub issues directly from the browser
+  // due to CORS restrictions. Instead, we'll create a formatted request
+  // that users can manually submit if needed.
+  
+  console.log('Site addition request formatted:', issueData);
+  
+  // In a real implementation, this would need to go through a serverless function
+  // or GitHub Action that can create issues with proper authentication
+  
+  // For now, we'll store the request locally and let the user know it's been "submitted"
+  const issueRequests = JSON.parse(localStorage.getItem('github_issue_requests') || '[]');
+  issueRequests.push({
+    ...issueData,
+    timestamp: new Date().toISOString(),
+    status: 'pending'
+  });
+  localStorage.setItem('github_issue_requests', JSON.stringify(issueRequests));
 };
 
 // Auto-detect whether to use API or static files

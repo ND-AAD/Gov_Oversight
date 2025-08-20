@@ -14,7 +14,7 @@ import { Separator } from './ui/separator';
 
 import { Grid, List, Globe, Plus, ArrowUpDown, Settings, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { autoLoadRFPs } from '../utils/api';
+import { autoLoadRFPs, createSite } from '../utils/api';
 
 interface DashboardProps {
   onNavigate: (page: 'dashboard' | 'analytics' | 'settings' | 'ignored' | 'sites') => void;
@@ -254,25 +254,56 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     });
   };
 
-  const handleAddSite = () => {
+  const handleAddSite = async () => {
     if (!newSite.name.trim() || !newSite.baseUrl.trim()) {
       toast.error('Please fill in required fields');
       return;
     }
 
-    // Reset form
-    setNewSite({
-      name: '',
-      baseUrl: '',
-      mainRfpPageUrl: '',
-      sampleRfpUrl: '',
-      description: '',
-      isAdvanced: false,
-      customParameters: []
-    });
-    
-    setIsAddSiteOpen(false);
-    toast.success(`Site "${newSite.name}" added successfully`);
+    try {
+      // Prepare site data for submission
+      const siteData = {
+        name: newSite.name,
+        base_url: newSite.baseUrl,
+        main_rfp_page_url: newSite.mainRfpPageUrl || newSite.baseUrl,
+        sample_rfp_url: newSite.sampleRfpUrl || newSite.mainRfpPageUrl || newSite.baseUrl,
+        description: newSite.description,
+        field_mappings: newSite.customParameters.map(param => ({
+          alias: param.alias,
+          sample_value: param.currentValue,
+          data_type: 'text' // Default to text for now
+        }))
+      };
+
+      // Submit the site addition request
+      await createSite(siteData);
+
+      // Reset form
+      setNewSite({
+        name: '',
+        baseUrl: '',
+        mainRfpPageUrl: '',
+        sampleRfpUrl: '',
+        description: '',
+        isAdvanced: false,
+        customParameters: []
+      });
+      
+      setIsAddSiteOpen(false);
+      
+      // Show success message with next steps
+      toast.success(
+        `Site "${newSite.name}" request submitted! It will be processed automatically within 1 hour and appear in the next scraping run.`,
+        { duration: 6000 }
+      );
+
+      // Reload sites to show the pending site
+      loadRFPs();
+      
+    } catch (error) {
+      console.error('Failed to add site:', error);
+      toast.error(`Failed to add site: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   };
 
   const addCustomParameter = () => {

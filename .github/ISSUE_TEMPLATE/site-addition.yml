@@ -1,0 +1,97 @@
+name: 🏛️ Add Government Site for RFP Monitoring
+description: Request to add a new government website to the RFP monitoring system
+title: "Add Site: [SITE NAME]"
+labels: ["site-addition", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping expand government transparency! This will add a new government website to our automated RFP monitoring system.
+        
+        **Before submitting:** Please check if this site is already being monitored by viewing our [current sites list](https://nd-aad.github.io/Gov_Oversight/).
+
+  - type: input
+    id: site-name
+    attributes:
+      label: Site Name
+      description: A descriptive name for this government site
+      placeholder: "e.g., LA County Procurement Portal"
+    validations:
+      required: true
+
+  - type: input
+    id: base-url
+    attributes:
+      label: Base URL
+      description: The main website URL for this government agency
+      placeholder: "https://agency.gov"
+    validations:
+      required: true
+
+  - type: input
+    id: rfp-page-url
+    attributes:
+      label: RFP Page URL
+      description: URL of the page that lists current RFPs/bids (if different from base URL)
+      placeholder: "https://agency.gov/rfps or https://agency.gov/bids"
+    validations:
+      required: false
+
+  - type: input
+    id: sample-rfp-url
+    attributes:
+      label: Sample RFP URL
+      description: URL of a specific RFP on this site (helps train the scraper)
+      placeholder: "https://agency.gov/rfp/example-rfp-123"
+    validations:
+      required: false
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Brief description of this site and what types of RFPs it typically posts
+      placeholder: "Los Angeles County procurement portal that posts construction, technology, and service contracts including Olympic-related projects."
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority Level
+      description: How important is monitoring this site for Olympic surveillance?
+      options:
+        - High - Likely to have Olympic security/surveillance contracts
+        - Medium - May have Olympic-related contracts
+        - Low - General government transparency
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: verification
+    attributes:
+      label: Verification
+      description: Please confirm the following
+      options:
+        - label: I have verified this is a legitimate government website
+          required: true
+        - label: I have checked that this site is not already being monitored
+          required: true
+        - label: This site contains publicly accessible RFP/bid information
+          required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        
+        **What happens next?**
+        
+        1. 🤖 Our automated system will process this request within 1 hour
+        2. ✅ The site will be added to our monitoring system if validation passes
+        3. 🕸️ The site will be included in the next scheduled scraping run
+        4. 📊 New RFPs from this site will appear on the dashboard
+        
+        **Need help with field mapping?** Once the site is added, you can use the dashboard to configure custom field extraction for better data quality.
+        
+        Thank you for contributing to government transparency and Olympic accountability! 🎯

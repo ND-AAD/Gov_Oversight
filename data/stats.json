@@ -1,0 +1,33 @@
+{
+  "timestamp": "2025-08-20T11:01:54.137544Z",
+  "last_updated": "2025-08-20T11:01:54.137546Z",
+  "rfps": {
+    "total": 3,
+    "olympic_related": 0,
+    "surveillance": 1,
+    "high_priority": 1,
+    "closing_soon": 3,
+    "high_value": 3
+  },
+  "sites": {
+    "total": 3,
+    "active": 2,
+    "errors": 1
+  },
+  "financials": {
+    "total_contract_value": 148500000.0,
+    "surveillance_contract_value": 15000000.0,
+    "average_contract_value": 49500000.0
+  },
+  "categories": {
+    "Olympics 2028": 0,
+    "Surveillance": 1,
+    "Security": 1,
+    "Technology": 1,
+    "Construction": 1
+  },
+  "recent_activity": {
+    "new_rfps_last_week": 0,
+    "sites_with_recent_activity": 0
+  }
+}

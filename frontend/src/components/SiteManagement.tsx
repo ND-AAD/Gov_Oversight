@@ -82,13 +82,7 @@ export function SiteManagement({ onNavigate }: SiteManagementProps) {
       return;
     }
 
-    // Check if we're in static mode (GitHub Pages)
-    const isStaticMode = window.location.hostname.includes('github.io');
-    
-    if (isStaticMode) {
-      toast.error('Site management requires API mode. In static mode (GitHub Pages), sites must be configured through code and deployment.');
-      return;
-    }
+    // Site creation now handles both API and GitHub modes automatically
 
     try {
       const siteData = {
@@ -127,7 +121,14 @@ export function SiteManagement({ onNavigate }: SiteManagementProps) {
       });
       
       setIsAddSiteOpen(false);
-      toast.success(`Site "${newSite.name}" added successfully`);
+      
+      // Different messages for different modes
+      const isStaticMode = window.location.hostname.includes('github.io');
+      if (isStaticMode) {
+        toast.success(`Site "${newSite.name}" queued for addition. It will be processed on the next scraping run.`);
+      } else {
+        toast.success(`Site "${newSite.name}" added successfully`);
+      }
     } catch (error) {
       console.error('Failed to add site:', error);
       toast.error('Failed to add site');

@@ -1,33 +1,37 @@
 #!/usr/bin/env python3
-"""Script to count RFPs in the data file for GitHub Actions."""
+"""
+Count RFPs in the data file.
+
+Simple script to count total RFPs for GitHub Actions workflow reporting.
+"""
 
 import json
+import os
 import sys
-from pathlib import Path
 
 def count_rfps():
-    """Count the number of RFPs in the data file."""
+    """Count RFPs in the current data file."""
+    rfps_file = 'data/rfps.json'
+    
+    if not os.path.exists(rfps_file):
+        return 0
+    
     try:
-        data_file = Path('data/rfps.json')
-        if not data_file.exists():
-            print("0")
-            return
-            
-        with open(data_file, 'r', encoding='utf-8') as f:
+        with open(rfps_file, 'r') as f:
             data = json.load(f)
         
+        # Handle different data formats
         if isinstance(data, list):
-            count = len(data)
+            return len(data)
         elif isinstance(data, dict) and 'rfps' in data:
-            count = len(data['rfps'])
+            return len(data['rfps'])
         else:
-            count = 0
+            return 0
             
-        print(count)
-        
     except Exception as e:
-        print("0")
-        sys.stderr.write(f"Error counting RFPs: {e}\n")
+        print(f"Error reading RFPs file: {e}", file=sys.stderr)
+        return 0
 
-if __name__ == "__main__":
-    count_rfps()
+if __name__ == '__main__':
+    count = count_rfps()
+    print(count)
