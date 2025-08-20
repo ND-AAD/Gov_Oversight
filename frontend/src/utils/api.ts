@@ -266,7 +266,7 @@ Requested: ${new Date().toISOString()}
 };
 
 // Keep the old deleteSite function for backwards compatibility but redirect to soft delete
-export const deleteSite = async (siteId: string): Promise<void> => {
+export const deleteSite = async (_siteId: string): Promise<void> => {
   throw new Error('Direct deletion has been replaced with soft delete for better data safety. Use softDeleteSite() instead.');
 };
 
