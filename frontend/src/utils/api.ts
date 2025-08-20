@@ -452,17 +452,22 @@ ${siteData.field_mappings?.map(fm => `- ${fm.alias}: "${fm.sample_value}" (${fm.
 ---
 *This request was submitted via the RFP Monitor dashboard and will be processed automatically.*`;
 
-  // Create the GitHub issue URL with pre-filled data
-  const issueTitle = encodeURIComponent(`Add Site: ${siteData.name}`);
-  const issueBodyEncoded = encodeURIComponent(issueBody);
-  const labels = encodeURIComponent('site-addition');
+  const issueData = {
+    title: `Add Site: ${siteData.name}`,
+    body: issueBody,
+    labels: ['site-addition', 'automation']
+  };
+
+  // Store the request locally for immediate UX feedback
+  const issueRequests = JSON.parse(localStorage.getItem('github_issue_requests') || '[]');
+  issueRequests.push({
+    ...issueData,
+    timestamp: new Date().toISOString(),
+    status: 'pending'
+  });
+  localStorage.setItem('github_issue_requests', JSON.stringify(issueRequests));
   
-  const githubIssueUrl = `https://github.com/ND-AAD/Gov_Oversight/issues/new?title=${issueTitle}&body=${issueBodyEncoded}&labels=${labels}`;
-  
-  // Open the GitHub issue creation page in a new tab
-  window.open(githubIssueUrl, '_blank');
-  
-  console.log('Site addition GitHub issue opened:', githubIssueUrl);
+  console.log('Site addition request created:', issueData);
 };
 
 // Clean up ignored RFPs from deleted sites
