@@ -1,0 +1,65 @@
+name: 🕸️ Trigger Manual Scraping
+description: Request an immediate scraping run outside the normal 6-hour schedule
+title: "Manual Scraping Request"
+labels: ["trigger-scraping", "maintenance"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Request an immediate scraping run of all configured government sites.
+        
+        **Normal Schedule**: Scraping runs automatically every 6 hours.
+
+  - type: dropdown
+    id: urgency
+    attributes:
+      label: Urgency Level
+      description: How urgent is this scraping request?
+      options:
+        - High - Time-sensitive RFPs may be missed
+        - Medium - Want to check for new postings
+        - Low - General data refresh
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: scrape-options
+    attributes:
+      label: Scraping Options
+      description: Select any special options for this scraping run
+      options:
+        - label: Force full rescan (ignore last update times)
+        - label: Include error sites (retry previously failed sites)
+        - label: Generate detailed report
+
+  - type: input
+    id: specific-sites
+    attributes:
+      label: Specific Sites (Optional)
+      description: Leave blank to scrape all sites, or specify comma-separated site IDs
+      placeholder: "e.g., la_county,metro_la"
+    validations:
+      required: false
+
+  - type: textarea
+    id: reason
+    attributes:
+      label: Reason for Manual Trigger
+      description: Why is an immediate scraping run needed?
+      placeholder: "Explain why this can't wait for the next scheduled run..."
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        
+        **What happens next?**
+        
+        1. 🤖 Our automated system will process this request within 15 minutes
+        2. 🕸️ A scraping run will be triggered with the specified options
+        3. 📊 Results will be available on the dashboard within 30 minutes
+        4. ✅ This issue will be closed automatically when complete
+        
+        **Alternative**: You can also manually trigger scraping from the [GitHub Actions tab](https://github.com/ND-AAD/Gov_Oversight/actions/workflows/scrape.yml).

@@ -69,9 +69,10 @@ jobs:
           git add data/rfps.json
           
           TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
-          git commit -m "🏛️ Process pending site additions" -m "- Processed at: $TIMESTAMP
-          - Added new sites from issue requests
-          - Workflow: ${{ github.workflow }} #${{ github.run_number }}"
+          git commit -m "🏛️ Process pending site additions" \
+                     -m "- Processed at: $TIMESTAMP" \
+                     -m "- Added new sites from issue requests" \
+                     -m "- Workflow: ${{ github.workflow }} #${{ github.run_number }}"
           
           git push
           

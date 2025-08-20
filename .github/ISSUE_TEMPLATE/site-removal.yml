@@ -1,0 +1,77 @@
+name: 🗑️ Remove Government Site from Monitoring
+description: Request to remove a government website from the RFP monitoring system
+title: "Remove Site: [SITE NAME]"
+labels: ["site-removal", "maintenance"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Request to remove a government website from our RFP monitoring system.
+        
+        **Before submitting:** Please ensure this removal is necessary and justified.
+
+  - type: input
+    id: site-id
+    attributes:
+      label: Site ID
+      description: The unique identifier of the site to remove
+      placeholder: "e.g., la_county or metro_la"
+    validations:
+      required: true
+
+  - type: input
+    id: site-name
+    attributes:
+      label: Site Name
+      description: The display name of the site being removed
+      placeholder: "e.g., LA County Procurement Portal"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: removal-reason
+    attributes:
+      label: Reason for Removal
+      description: Why should this site be removed from monitoring?
+      options:
+        - Site no longer exists or is inaccessible
+        - Site no longer posts relevant RFPs
+        - Duplicate of another monitored site
+        - Legal or compliance issue
+        - Other (specify in details)
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: Additional Details
+      description: Provide any additional context about why this site should be removed
+      placeholder: "Explain the specific reason for removal..."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: verification
+    attributes:
+      label: Verification
+      description: Please confirm the following
+      options:
+        - label: I have verified this site should be removed from monitoring
+          required: true
+        - label: I understand this will stop monitoring RFPs from this site
+          required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        
+        **What happens next?**
+        
+        1. 🤖 Our automated system will process this request within 1 hour
+        2. ✅ The site will be removed from our monitoring system if approved
+        3. 🕸️ The site will no longer be included in scraping runs
+        4. 📊 Existing RFPs from this site will remain in the database for historical purposes
+        
+        **Note**: Site removal is permanent and requires manual re-addition if needed later.

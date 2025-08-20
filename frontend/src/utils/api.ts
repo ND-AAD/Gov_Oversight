@@ -187,12 +187,48 @@ export const testSite = async (siteId: string): Promise<{
 };
 
 export const deleteSite = async (siteId: string): Promise<void> => {
-  await api.delete(`/api/sites/${siteId}`);
+  // Check if we're in static mode (GitHub Pages)
+  const isStaticMode = window.location.hostname.includes('github.io');
+  
+  if (isStaticMode) {
+    // In static mode, we can't directly delete sites from the data files
+    // Instead, we'll create a GitHub issue for site removal
+    throw new Error('Site deletion in GitHub Pages mode requires creating a GitHub issue for manual processing. Please create an issue with the label "site-removal" and specify the site ID to remove.');
+  } else {
+    // Development mode - use API
+    await api.delete(`/api/sites/${siteId}`);
+  }
 };
 
 // Scraping endpoints
 export const startScraping = async (forceFullScan: boolean = false): Promise<void> => {
-  await api.post('/api/scrape', { force_full_scan: forceFullScan });
+  // Check if we're in static mode (GitHub Pages)
+  const isStaticMode = window.location.hostname.includes('github.io');
+  
+  if (isStaticMode) {
+    // In static mode, we need to trigger GitHub Actions workflow
+    // Since we can't trigger workflows directly from the browser due to CORS,
+    // we'll create a GitHub issue that triggers the workflow
+    await triggerScrapingViaGitHub(forceFullScan);
+  } else {
+    // Development mode - use API
+    await api.post('/api/scrape', { force_full_scan: forceFullScan });
+  }
+};
+
+// Trigger scraping via GitHub Actions (static mode)
+const triggerScrapingViaGitHub = async (forceFullScan: boolean): Promise<void> => {
+  // For now, we'll simulate the trigger since direct GitHub Actions API calls
+  // require authentication that can't be done securely from the browser
+  console.log('Scraping trigger requested (force:', forceFullScan, ')');
+  
+  // In a production setup, this would:
+  // 1. Create a GitHub issue with label "trigger-scraping"
+  // 2. GitHub Actions would detect the issue and run the scraping workflow
+  // 3. The issue would be closed automatically
+  
+  // For now, inform the user about the current process
+  throw new Error('Manual scraping trigger: GitHub Actions runs automatically every 6 hours. To force an immediate run, go to the GitHub repository Actions tab and manually trigger the "Automated RFP Scraping" workflow.');
 };
 
 // Statistics

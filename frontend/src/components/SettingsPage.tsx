@@ -118,18 +118,21 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
   };
 
   const handleForceUpdate = async () => {
-    // In a real app, this would trigger an immediate data refresh
     try {
-      toast.success('Forcing update... This may take a moment.');
+      toast.loading('Triggering data update...');
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Import the startScraping function
+      const { startScraping } = await import('../utils/api');
+      
+      // Trigger scraping with force flag
+      await startScraping(true);
       
       // Update last update timestamp
       handleSettingChange('updates', 'lastUpdate', new Date().toISOString());
-      toast.success('Data updated successfully!');
+      toast.success('Update triggered successfully! New data will appear in the next few minutes.');
     } catch (error) {
-      toast.error('Failed to update data. Please try again.');
+      console.error('Failed to trigger update:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to trigger update. Please try again.');
     }
   };
 
