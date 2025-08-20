@@ -20,7 +20,7 @@ import {
   TestTube
 } from 'lucide-react';
 import type { SiteConfig } from '../types/rfp';
-import { createSite, createFieldMappings, testSite, deleteSite, autoLoadSites } from '../utils/api';
+import { createSite, createFieldMappings, testSite, softDeleteSite, autoLoadSites } from '../utils/api';
 import { toast } from 'sonner';
 
 interface SiteManagementProps {
@@ -136,14 +136,25 @@ export function SiteManagement({ onNavigate }: SiteManagementProps) {
   };
 
   const handleDeleteSite = async (id: string, name: string) => {
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      `Are you sure you want to remove "${name}"?\n\n` +
+      `This will:\n` +
+      `• Stop monitoring RFPs from this site\n` +
+      `• Preserve existing RFP data for transparency\n` +
+      `• Allow easy restoration if needed\n\n` +
+      `Click OK to proceed with soft deletion.`
+    );
+    
+    if (!confirmed) return;
+    
     try {
-      await deleteSite(id);
+      await softDeleteSite(id, name);
       await loadSites();
-      toast.success(`Site "${name}" removal process initiated`);
+      toast.success(`Site "${name}" has been removed from monitoring (data preserved)`);
     } catch (error) {
-      console.error('Delete site process:', error);
-      // Show the actual error message which contains helpful instructions
-      toast.info(error instanceof Error ? error.message : 'Site removal process initiated');
+      console.error('Soft delete process:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to remove site');
     }
   };
 

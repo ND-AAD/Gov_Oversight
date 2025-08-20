@@ -106,7 +106,7 @@ export const getSites = async (): Promise<SiteConfig[]> => {
       }
     }
     
-    // In static mode, also include pending sites from localStorage for immediate UX
+    // In static mode, also include pending sites and filter out soft-deleted sites
     if (API_MODE === 'static') {
       const pendingSites = localStorage.getItem('pending_site_additions');
       if (pendingSites) {
@@ -117,6 +117,11 @@ export const getSites = async (): Promise<SiteConfig[]> => {
           console.warn('Failed to parse pending sites from localStorage');
         }
       }
+      
+      // Filter out soft-deleted sites
+      const deletedSites = JSON.parse(localStorage.getItem('soft_deleted_sites') || '[]');
+      const deletedIds = new Set(deletedSites.map((site: any) => site.id));
+      sites = sites.filter(site => !deletedIds.has(site.id));
     }
     
     return sites;
@@ -186,12 +191,13 @@ export const testSite = async (siteId: string): Promise<{
   return response.data.data;
 };
 
-export const deleteSite = async (siteId: string): Promise<void> => {
+// Soft delete a site (mark as deleted but preserve data)
+export const softDeleteSite = async (siteId: string, siteName: string): Promise<void> => {
   // Check if we're in static mode (GitHub Pages)
   const isStaticMode = window.location.hostname.includes('github.io');
   
   if (isStaticMode) {
-    // In static mode, we'll remove from localStorage and direct user to GitHub
+    // Remove from pending sites if it exists
     const pendingSites = localStorage.getItem('pending_site_additions');
     if (pendingSites) {
       try {
@@ -203,18 +209,65 @@ export const deleteSite = async (siteId: string): Promise<void> => {
       }
     }
     
-    // For permanent deletion of committed sites, direct to GitHub
-    window.open(
-      `https://github.com/ND-AAD/Gov_Oversight/issues/new?template=site-removal.yml&title=Remove+Site:+${siteId}`,
-      '_blank'
-    );
+    // For committed sites, create a soft delete request via GitHub Issue
+    await createSoftDeleteIssue(siteId, siteName);
     
-    // Don't throw an error, just inform the user
-    throw new Error('Site removal request opened in new tab. For temporary sites, it has been removed from your session.');
+    // Also mark as deleted in localStorage for immediate UX
+    const deletedSites = JSON.parse(localStorage.getItem('soft_deleted_sites') || '[]');
+    deletedSites.push({
+      id: siteId,
+      name: siteName,
+      deletedAt: new Date().toISOString()
+    });
+    localStorage.setItem('soft_deleted_sites', JSON.stringify(deletedSites));
+    
   } else {
     // Development mode - use API
-    await api.delete(`/api/sites/${siteId}`);
+    await api.post(`/api/sites/${siteId}/soft-delete`);
   }
+};
+
+// Create GitHub issue for soft deletion
+const createSoftDeleteIssue = async (siteId: string, siteName: string): Promise<void> => {
+  const issueBody = `
+**Soft Delete Site Request**
+
+Site ID: ${siteId}
+Site Name: ${siteName}
+Action: Mark as deleted (preserve data, stop scraping)
+Requested: ${new Date().toISOString()}
+
+**Automated Action Required:**
+- [ ] Mark site status as "deleted" in sites.json
+- [ ] Exclude from future scraping runs
+- [ ] Preserve all existing RFP data
+- [ ] Site can be restored easily if needed
+
+---
+*This request was submitted via the dashboard soft delete feature.*
+`.trim();
+
+  const issueData = {
+    title: `Soft Delete Site: ${siteName}`,
+    body: issueBody,
+    labels: ['site-soft-delete', 'automation']
+  };
+
+  // Store the formatted request for processing
+  const issueRequests = JSON.parse(localStorage.getItem('github_issue_requests') || '[]');
+  issueRequests.push({
+    ...issueData,
+    timestamp: new Date().toISOString(),
+    status: 'pending'
+  });
+  localStorage.setItem('github_issue_requests', JSON.stringify(issueRequests));
+  
+  console.log('Soft delete request created:', issueData);
+};
+
+// Keep the old deleteSite function for backwards compatibility but redirect to soft delete
+export const deleteSite = async (siteId: string): Promise<void> => {
+  throw new Error('Direct deletion has been replaced with soft delete for better data safety. Use softDeleteSite() instead.');
 };
 
 // Scraping endpoints

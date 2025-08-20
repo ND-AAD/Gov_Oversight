@@ -164,15 +164,16 @@ class DataManager:
                 temp_file.unlink()
             raise
     
-    def load_site_configs(self, validate: bool = True) -> List[SiteConfig]:
+    def load_site_configs(self, validate: bool = True, include_deleted: bool = False) -> List[SiteConfig]:
         """
-        Load all site configurations from the JSON file.
+        Load site configurations from the JSON file.
         
         Args:
             validate: Whether to validate loaded data
+            include_deleted: Whether to include soft-deleted sites
             
         Returns:
-            List of SiteConfig objects
+            List of SiteConfig objects (excludes deleted sites by default)
         """
         if not self.sites_file.exists():
             logger.warning(f"Sites file not found: {self.sites_file}")
@@ -201,6 +202,11 @@ class DataManager:
                                 continue
                     
                     site = SiteConfig.from_dict(site_dict)
+                    
+                    # Filter out deleted sites unless explicitly requested
+                    if not include_deleted and site.status == 'deleted':
+                        continue
+                        
                     sites.append(site)
                     
                 except Exception as e:

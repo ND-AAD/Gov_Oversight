@@ -15,7 +15,7 @@ from typing import Dict, List, Optional, Any
 import requests
 
 def get_github_issues() -> List[Dict]:
-    """Fetch open issues with 'site-addition' label."""
+    """Fetch open issues with 'site-addition' and 'site-soft-delete' labels."""
     token = os.environ.get('GITHUB_TOKEN')
     repo = os.environ.get('GITHUB_REPOSITORY')
     
@@ -29,18 +29,26 @@ def get_github_issues() -> List[Dict]:
         'Accept': 'application/vnd.github.v3+json'
     }
     
-    params = {
-        'labels': 'site-addition',
-        'state': 'open'
-    }
+    # Fetch both site-addition and site-soft-delete issues
+    all_issues = []
+    for label in ['site-addition', 'site-soft-delete']:
+        params = {
+            'labels': label,
+            'state': 'open'
+        }
+        
+        try:
+            response = requests.get(url, headers=headers, params=params)
+            response.raise_for_status()
+            issues = response.json()
+            # Tag issues with their type for processing
+            for issue in issues:
+                issue['processing_type'] = label
+            all_issues.extend(issues)
+        except Exception as e:
+            print(f"❌ Failed to fetch {label} issues: {e}")
     
-    try:
-        response = requests.get(url, headers=headers, params=params)
-        response.raise_for_status()
-        return response.json()
-    except Exception as e:
-        print(f"❌ Failed to fetch issues: {e}")
-        return []
+    return all_issues
 
 def parse_site_config_from_issue(issue_body: str) -> Optional[Dict]:
     """Parse site configuration from issue body."""
@@ -205,17 +213,74 @@ def create_site_from_config(config: Dict, existing_ids: List[str]) -> Dict:
         }
     }
 
+def process_soft_delete_issue(issue: Dict) -> bool:
+    """Process a soft delete request."""
+    issue_body = issue['body'] or ''
+    issue_number = issue['number']
+    
+    # Extract site ID and name from issue body
+    site_id_match = re.search(r'Site ID:\s*(.+)', issue_body, re.IGNORECASE)
+    site_name_match = re.search(r'Site Name:\s*(.+)', issue_body, re.IGNORECASE)
+    
+    if not site_id_match:
+        comment = "❌ **Soft Delete Failed**: Unable to find Site ID in issue body."
+        close_issue(issue_number, comment)
+        return False
+    
+    site_id = site_id_match.group(1).strip()
+    site_name = site_name_match.group(1).strip() if site_name_match else site_id
+    
+    # Load current sites
+    sites_data = load_current_sites()
+    
+    # Find the site to soft delete
+    site_found = False
+    for site in sites_data['sites']:
+        if site['id'] == site_id:
+            site['status'] = 'deleted'
+            site['deleted_at'] = datetime.now().isoformat() + "Z"
+            site['deletion_reason'] = f"Soft deleted via issue #{issue_number}"
+            site_found = True
+            break
+    
+    if not site_found:
+        comment = f"❌ **Soft Delete Failed**: Site with ID '{site_id}' not found."
+        close_issue(issue_number, comment)
+        return False
+    
+    # Save updated sites
+    save_sites_file(sites_data)
+    
+    # Close issue with success message
+    comment = f"""✅ **Site Soft Deleted Successfully**
+
+The site "{site_name}" (ID: `{site_id}`) has been soft deleted:
+
+**Actions Completed:**
+- ✅ Site status changed to "deleted"
+- ✅ Will be excluded from future scraping runs
+- ✅ All existing RFP data preserved
+- ✅ Can be easily restored by changing status to "active"
+
+**Restoration**: To restore this site, create a new issue requesting status change to "active".
+
+The site has been successfully removed from monitoring while preserving all historical data. 📦"""
+    
+    close_issue(issue_number, comment)
+    print(f"✅ Soft deleted site: {site_name} (ID: {site_id})")
+    return True
+
 def main():
     """Main processing function."""
-    print("🏛️ Processing pending site additions...")
+    print("🏛️ Processing pending site operations...")
     
     # Fetch pending issues
     issues = get_github_issues()
     if not issues:
-        print("ℹ️ No pending site addition issues found")
+        print("ℹ️ No pending site operation issues found")
         return
     
-    print(f"📋 Found {len(issues)} pending site addition issues")
+    print(f"📋 Found {len(issues)} pending site operation issues")
     
     # Load current sites
     sites_data = load_current_sites()
@@ -227,10 +292,17 @@ def main():
         issue_number = issue['number']
         issue_title = issue['title']
         issue_body = issue['body'] or ''
+        processing_type = issue.get('processing_type', 'site-addition')
         
-        print(f"\n📄 Processing issue #{issue_number}: {issue_title}")
+        print(f"\n📄 Processing {processing_type} issue #{issue_number}: {issue_title}")
         
-        # Parse site configuration
+        # Handle soft delete requests
+        if processing_type == 'site-soft-delete':
+            if process_soft_delete_issue(issue):
+                processed_count += 1
+            continue
+        
+        # Handle site addition requests (existing logic)
         config = parse_site_config_from_issue(issue_body)
         if not config:
             comment = f"""❌ **Site Addition Failed**

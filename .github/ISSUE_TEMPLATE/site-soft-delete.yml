@@ -1,0 +1,86 @@
+name: 🗂️ Soft Delete Site (Stop Monitoring)
+description: Mark a site as deleted but preserve all data for potential restoration
+title: "Soft Delete Site: [SITE NAME]"
+labels: ["site-soft-delete", "automation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Soft Delete Request**: Remove site from monitoring while preserving all historical data.
+        
+        This action will:
+        - ✅ Stop scraping RFPs from this site
+        - ✅ Preserve all existing RFP data
+        - ✅ Allow easy restoration later
+        - ✅ Maintain audit trail
+
+  - type: input
+    id: site-id
+    attributes:
+      label: Site ID
+      description: The unique identifier of the site to soft delete
+      placeholder: "e.g., la_county or metro_la"
+    validations:
+      required: true
+
+  - type: input
+    id: site-name
+    attributes:
+      label: Site Name
+      description: The display name of the site being soft deleted
+      placeholder: "e.g., LA County Procurement Portal"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: reason
+    attributes:
+      label: Reason for Soft Deletion
+      description: Why should this site stop being monitored?
+      options:
+        - Site is no longer relevant for Olympic monitoring
+        - Duplicate of another monitored site
+        - Temporary removal for testing/configuration
+        - Site structure changed significantly
+        - Other (specify in details)
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: Additional Details
+      description: Provide any additional context about the soft deletion
+      placeholder: "Explain why monitoring should stop..."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: automated-actions
+    attributes:
+      label: Automated Actions to Perform
+      description: Check the actions that should be automated
+      options:
+        - label: Mark site status as "deleted" in sites.json
+          required: true
+        - label: Exclude from future scraping runs
+          required: true
+        - label: Preserve all existing RFP data
+          required: true
+        - label: Site can be restored easily if needed
+          required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        
+        **What happens next?**
+        
+        1. 🤖 Our automated system will process this request within 1 hour
+        2. 🛑 The site will be marked as deleted and excluded from scraping
+        3. 💾 All existing RFP data will be preserved for transparency
+        4. 🔄 The site can be easily restored by changing status back to "active"
+        5. ✅ This issue will be closed automatically when complete
+        
+        **Restoration**: To restore a soft-deleted site, create a new issue requesting status change to "active".
