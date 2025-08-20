@@ -145,8 +145,11 @@ export interface CreateSiteRequest {
 }
 
 export const createSite = async (siteData: CreateSiteRequest): Promise<SiteConfig> => {
-  // Check if we're in static mode (GitHub Pages)
-  const isStaticMode = window.location.hostname.includes('github.io');
+  // Check if we're in static mode (GitHub Pages or any non-localhost)
+  const isStaticMode = window.location.hostname.includes('github.io') || 
+                      !window.location.hostname.includes('localhost');
+  
+  console.log('createSite - hostname:', window.location.hostname, 'isStaticMode:', isStaticMode);
   
   if (isStaticMode) {
     // GitHub API approach for static mode
@@ -193,8 +196,9 @@ export const testSite = async (siteId: string): Promise<{
 
 // Soft delete a site (mark as deleted but preserve data)
 export const softDeleteSite = async (siteId: string, siteName: string): Promise<void> => {
-  // Check if we're in static mode (GitHub Pages)
-  const isStaticMode = window.location.hostname.includes('github.io');
+  // Check if we're in static mode (GitHub Pages or any non-localhost)
+  const isStaticMode = window.location.hostname.includes('github.io') || 
+                      !window.location.hostname.includes('localhost');
   
   if (isStaticMode) {
     // Remove from pending sites if it exists
@@ -272,8 +276,9 @@ export const deleteSite = async (_siteId: string): Promise<void> => {
 
 // Scraping endpoints
 export const startScraping = async (forceFullScan: boolean = false): Promise<void> => {
-  // Check if we're in static mode (GitHub Pages)
-  const isStaticMode = window.location.hostname.includes('github.io');
+  // Check if we're in static mode (GitHub Pages or any non-localhost)
+  const isStaticMode = window.location.hostname.includes('github.io') || 
+                      !window.location.hostname.includes('localhost');
   
   if (isStaticMode) {
     // In static mode, we need to trigger GitHub Actions workflow
