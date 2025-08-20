@@ -1,0 +1,191 @@
+name: 🚀 Deploy Surveillance Dashboard
+
+on:
+  # Deploy when new surveillance data is committed
+  push:
+    branches: [ main ]
+    paths:
+      - 'data/**'
+      - 'frontend/**'
+      - '.github/workflows/deploy.yml'
+  
+  # Allow manual deployment
+  workflow_dispatch:
+
+  # Deploy after successful scraping
+  workflow_run:
+    workflows: ["🕵️ RFP Surveillance Monitor"]
+    types:
+      - completed
+
+# Required for GitHub Pages deployment
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Prevent concurrent deployments
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-surveillance-dashboard:
+    name: 🏗️ Build Public Surveillance Dashboard
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout surveillance monitoring code
+        uses: actions/checkout@v4
+      
+      - name: 🟢 Setup Node.js for frontend build
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: 📦 Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+      
+      - name: 📊 Prepare surveillance data for static hosting
+        run: |
+          echo "🔄 Preparing surveillance contract data..."
+          
+          # Ensure public data directory exists
+          mkdir -p frontend/public/data
+          
+          # Copy latest RFP data to public directory for static access
+          if [ -f "data/rfps.json" ]; then
+            cp data/rfps.json frontend/public/data/
+            echo "✅ RFP data copied to public directory"
+          else
+            echo "⚠️ No RFP data found - using sample data"
+            cp data/sample_rfps.json frontend/public/data/rfps.json 2>/dev/null || echo "{\"rfps\": []}" > frontend/public/data/rfps.json
+          fi
+          
+          # Copy site configurations
+          if [ -f "data/sites.json" ]; then
+            cp data/sites.json frontend/public/data/
+            echo "✅ Site data copied to public directory"
+          else
+            echo "⚠️ No site data found - using sample data"
+            cp data/sample_sites.json frontend/public/data/sites.json 2>/dev/null || echo "{\"sites\": []}" > frontend/public/data/sites.json
+          fi
+          
+          # Generate metadata for the dashboard
+          cat > frontend/public/data/metadata.json << EOF
+          {
+            "last_updated": "$(date -u -Iseconds)",
+            "deployment_id": "${{ github.run_number }}",
+            "commit_sha": "${{ github.sha }}",
+            "workflow_run": "${{ github.run_id }}",
+            "repository": "${{ github.repository }}",
+            "monitoring_mission": "2028 Olympics Surveillance Contract Transparency",
+            "data_sources": "LA City, CA State, Metro LA procurement portals",
+            "update_frequency": "Every 6 hours via automated scraping",
+            "alert_keywords": ["surveillance", "security", "biometric", "facial recognition", "monitoring", "intelligence", "camera", "tracking"]
+          }
+          EOF
+          
+          echo "📋 Generated dashboard metadata"
+      
+      - name: 🏗️ Build surveillance dashboard for production
+        run: |
+          cd frontend
+          
+          echo "🏗️ Building public surveillance transparency dashboard..."
+          
+          # Set production environment variables
+          export VITE_API_MODE=static
+          export VITE_APP_TITLE="LA 2028 RFP Surveillance Monitor"
+          export VITE_APP_DESCRIPTION="Public oversight of 2028 Olympics surveillance contracts"
+          export VITE_REPO_URL="${{ github.server_url }}/${{ github.repository }}"
+          export VITE_DEPLOYMENT_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+          
+          # Build the React app for static hosting
+          npm run build
+          
+          echo "✅ Dashboard built successfully"
+          echo "📊 Build size:"
+          du -sh dist/
+      
+      - name: 🔧 Configure GitHub Pages deployment
+        uses: actions/configure-pages@v4
+      
+      - name: 📤 Upload surveillance dashboard artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist
+          name: surveillance-dashboard
+      
+      - name: 📊 Generate deployment summary
+        run: |
+          echo "## 🚀 Surveillance Dashboard Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**🎯 Mission:** Public transparency for 2028 Olympics surveillance contracts" >> $GITHUB_STEP_SUMMARY
+          echo "**⏰ Deployed:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "**🔄 Trigger:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**📝 Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Data Status" >> $GITHUB_STEP_SUMMARY
+          
+          # Check data files and report status
+          if [ -f "frontend/public/data/rfps.json" ]; then
+            RFP_COUNT=$(python3 -c "import json; print(len(json.load(open('frontend/public/data/rfps.json'))['rfps']))" 2>/dev/null || echo "unknown")
+            echo "- **📋 RFPs Monitored:** $RFP_COUNT surveillance contracts" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ -f "frontend/public/data/sites.json" ]; then
+            SITE_COUNT=$(python3 -c "import json; print(len(json.load(open('frontend/public/data/sites.json'))['sites']))" 2>/dev/null || echo "unknown")
+            echo "- **🏛️ Government Sites:** $SITE_COUNT procurement portals" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "- **🔄 Update Frequency:** Every 6 hours (automated)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔗 Access Links" >> $GITHUB_STEP_SUMMARY
+          echo "- **🌐 Public Dashboard:** Will be available after deployment" >> $GITHUB_STEP_SUMMARY
+          echo "- **📊 Raw Data:** [\`rfps.json\`](https://github.com/${{ github.repository }}/blob/main/data/rfps.json)" >> $GITHUB_STEP_SUMMARY
+          echo "- **🏛️ Site Configs:** [\`sites.json\`](https://github.com/${{ github.repository }}/blob/main/data/sites.json)" >> $GITHUB_STEP_SUMMARY
+          echo "- **🔍 Source Code:** [GitHub Repository](https://github.com/${{ github.repository }})" >> $GITHUB_STEP_SUMMARY
+
+  deploy-to-github-pages:
+    name: 🌐 Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: build-surveillance-dashboard
+    
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+      - name: 🚀 Deploy surveillance dashboard to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: surveillance-dashboard
+      
+      - name: 📢 Announce deployment
+        run: |
+          echo "🎉 SURVEILLANCE DASHBOARD DEPLOYED!"
+          echo "🌐 Public URL: ${{ steps.deployment.outputs.page_url }}"
+          echo "🕵️ Mission: 2028 Olympics surveillance contract transparency"
+          echo "📊 Real-time monitoring of government procurement"
+          echo ""
+          echo "🔗 Dashboard: ${{ steps.deployment.outputs.page_url }}"
+          echo "📊 Data API: ${{ steps.deployment.outputs.page_url }}data/rfps.json"
+          echo "🏛️ Site Configs: ${{ steps.deployment.outputs.page_url }}data/sites.json"
+          
+          # Add to job summary
+          echo "## 🎉 Surveillance Dashboard Successfully Deployed!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**🌐 Public URL:** [${{ steps.deployment.outputs.page_url }}](${{ steps.deployment.outputs.page_url }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The public can now access real-time surveillance contract monitoring for the 2028 Olympics." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔗 Quick Access" >> $GITHUB_STEP_SUMMARY
+          echo "- **🎯 Dashboard:** [${{ steps.deployment.outputs.page_url }}](${{ steps.deployment.outputs.page_url }})" >> $GITHUB_STEP_SUMMARY
+          echo "- **📊 RFP Data API:** [${{ steps.deployment.outputs.page_url }}data/rfps.json](${{ steps.deployment.outputs.page_url }}data/rfps.json)" >> $GITHUB_STEP_SUMMARY
+          echo "- **🏛️ Sites API:** [${{ steps.deployment.outputs.page_url }}data/sites.json](${{ steps.deployment.outputs.page_url }}data/sites.json)" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,72 @@
+{
+  "metadata": {
+    "last_updated": "2024-12-16T15:30:00Z",
+    "total_sites": 3,
+    "version": "1.0"
+  },
+  "sites": [
+    {
+      "id": "la_city",
+      "name": "LA City Portal",
+      "baseUrl": "https://losangeles.gov",
+      "lastScrape": "2024-12-16T10:00:00Z",
+      "status": "active",
+      "rfpCount": 12,
+      "scraperConfig": {
+        "mainRfpPageUrl": "https://losangeles.gov/rfps",
+        "sampleRfpUrl": "https://losangeles.gov/rfp/sample",
+        "customParameters": [
+          {
+            "alias": "Status",
+            "xpath": ".rfp-status",
+            "dataType": "text"
+          },
+          {
+            "alias": "Contract Value",
+            "xpath": ".contract-value",
+            "dataType": "currency"
+          }
+        ]
+      },
+      "testResults": {
+        "lastTest": "2024-12-16T09:00:00Z",
+        "success": true,
+        "rfpsFound": 12
+      }
+    },
+    {
+      "id": "ca_state",
+      "name": "CA State Contracts",
+      "baseUrl": "https://caleprocure.ca.gov",
+      "lastScrape": "2024-12-16T09:30:00Z",
+      "status": "active",
+      "rfpCount": 8,
+      "scraperConfig": {
+        "mainRfpPageUrl": "https://caleprocure.ca.gov/rfps",
+        "sampleRfpUrl": "https://caleprocure.ca.gov/rfp/sample"
+      },
+      "testResults": {
+        "lastTest": "2024-12-16T08:30:00Z",
+        "success": true,
+        "rfpsFound": 8
+      }
+    },
+    {
+      "id": "metro_la",
+      "name": "Metro LA Procurement",
+      "baseUrl": "https://metro.net",
+      "lastScrape": "2024-12-16T08:45:00Z",
+      "status": "error",
+      "rfpCount": 5,
+      "scraperConfig": {
+        "mainRfpPageUrl": "https://metro.net/procurement"
+      },
+      "testResults": {
+        "lastTest": "2024-12-16T08:00:00Z",
+        "success": false,
+        "errors": ["Connection timeout", "Invalid SSL certificate"],
+        "rfpsFound": 0
+      }
+    }
+  ]
+}

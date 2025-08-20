@@ -141,24 +141,38 @@ def validate_date_string(date_str: str, field_name: str = "date") -> ValidationR
     return result
 
 
-def validate_currency_string(currency_str: str) -> ValidationResult:
+def validate_currency_string(currency_value) -> ValidationResult:
     """
-    Validate currency string format.
+    Validate currency value format (string or number).
     
     Args:
-        currency_str: Currency string to validate (e.g., "$1,000,000")
+        currency_value: Currency value to validate (e.g., "$1,000,000" or 1000000)
         
     Returns:
         ValidationResult with validation status
     """
     result = ValidationResult()
     
-    if not currency_str or not isinstance(currency_str, str):
+    if currency_value is None:
         result.add_error("Currency value cannot be empty")
         return result
     
+    # Handle numeric values
+    if isinstance(currency_value, (int, float)):
+        amount = float(currency_value)
+        if amount < 0:
+            result.add_warning("Negative currency amount detected")
+        elif amount == 0:
+            result.add_warning("Zero currency amount detected")
+        return result
+    
+    # Handle string values
+    if not isinstance(currency_value, str):
+        result.add_error("Currency value must be string or number")
+        return result
+    
     # Remove common currency symbols and whitespace
-    clean_str = re.sub(r'[$,\s]', '', currency_str.strip())
+    clean_str = re.sub(r'[$,\s]', '', currency_value.strip())
     
     # Check if remaining string is a valid number
     try:
@@ -172,7 +186,7 @@ def validate_currency_string(currency_str: str) -> ValidationResult:
             result.add_warning("Unusually large contract amount (>$1B)")
             
     except ValueError:
-        result.add_error(f"Invalid currency format: '{currency_str}'")
+        result.add_error(f"Invalid currency format: '{currency_value}'")
     
     return result
 

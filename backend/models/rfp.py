@@ -1,6 +1,6 @@
 """RFP data model for storing procurement opportunities."""
 
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 import hashlib
@@ -16,11 +16,12 @@ class RFP:
     with emphasis on tracking changes and categorizing potential surveillance contracts.
     """
     
-    # Core identification
+    # Core identification (required fields first)
     id: str
     title: str
     url: str
     source_site: str
+    posted_date: str
     
     # Extracted data (flexible structure for different sites)
     extracted_fields: Dict[str, Any]
@@ -30,8 +31,10 @@ class RFP:
     content_hash: str
     categories: List[str]
     
-    # Optional fields for enhanced tracking
-    change_history: Optional[List[Dict[str, Any]]] = None
+    # Optional fields with defaults (must come after required fields)
+    closing_date: Optional[str] = None
+    description: str = ""
+    change_history: Optional[List[Dict[str, Any]]] = field(default=None)
     manual_review_status: Optional[str] = None  # 'pending', 'reviewed', 'flagged'
     notes: Optional[str] = None
     

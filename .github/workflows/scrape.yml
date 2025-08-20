@@ -1,103 +1,393 @@
-name: Automated RFP Scraping
+name: 🕵️ RFP Surveillance Monitor
 
 on:
+  # Run every 6 hours to catch new surveillance contracts
   schedule:
-    # Run every 6 hours at 0, 6, 12, and 18 UTC
-    - cron: '0 */6 * * *'
+    - cron: '0 */6 * * *'  # Every 6 hours: 00:00, 06:00, 12:00, 18:00 UTC
+  
+  # Allow manual triggers for immediate updates
   workflow_dispatch:
     inputs:
       force_full_scan:
-        description: 'Force full scan of all sites'
+        description: 'Force full scan (ignore last update times)'
         required: false
         default: 'false'
         type: boolean
+      target_site:
+        description: 'Specific site ID to scrape (leave empty for all sites)'
+        required: false
+        type: string
 
-permissions:
-  contents: write
-  issues: write
+  # Run on pushes to main (for testing)
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/scrape.yml'
+
+env:
+  PYTHONPATH: ${{ github.workspace }}/backend
 
 jobs:
-  scrape:
+  scrape-surveillance-contracts:
+    name: 🔍 Monitor Government Surveillance RFPs
     runs-on: ubuntu-latest
-    timeout-minutes: 30
     
+    permissions:
+      contents: write  # Allow committing data updates
+      issues: write    # Allow creating issues for failures
+      
     steps:
-      - name: Checkout repository
+      - name: 📥 Checkout surveillance monitoring code
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          
-      - name: Set up Python
+          fetch-depth: 0
+      
+      - name: 🐍 Set up Python for scraping
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
-          
-      - name: Install dependencies
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: 📦 Install scraping dependencies
         run: |
           cd backend
           pip install -r requirements.txt
           playwright install chromium
-          
-      - name: Run scraper
-        env:
-          FORCE_FULL_SCAN: ${{ github.event.inputs.force_full_scan }}
+          playwright install-deps
+      
+      - name: 🔧 Configure scraper environment
         run: |
+          echo "🏗️ Setting up scraping environment..."
           cd backend
-          echo "Starting RFP scraping process..."
-          echo "This is a placeholder - actual scraper will be implemented in Phase 1.3-1.4"
           
-          # Placeholder for actual scraper execution
-          # python main.py --scrape-all
+          # Ensure data directory exists with proper structure
+          mkdir -p ../data/history
           
-          # For now, just update a timestamp to show the action ran
-          echo "Last run: $(date -u)" > ../data/last_scrape.txt
+          # Set up logging directory
+          mkdir -p logs
           
-      - name: Validate scraped data
-        run: |
-          echo "Validating data integrity..."
-          # Add validation logic here when scraper is implemented
-          
-      - name: Commit and push changes
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          
-          # Check if there are any changes
-          if [ -n "$(git status --porcelain)" ]; then
-            git add data/
-            git commit -m "Automated scraping update - $(date -u '+%Y-%m-%d %H:%M UTC')
-            
-            - Scraped RFPs from configured sites
-            - Updated data files with new findings
-            - Automated by GitHub Actions every 6 hours"
-            
-            git push
-            echo "Changes committed and pushed"
-          else
-            echo "No changes detected - no commit needed"
+          # Copy sample data if no existing data
+          if [ ! -f "../data/rfps.json" ]; then
+            echo "📋 Initializing with sample data..."
+            cp ../data/sample_rfps.json ../data/rfps.json || echo "No sample RFPs found"
           fi
           
-      - name: Create issue for scraping errors
-        if: failure()
+          if [ ! -f "../data/sites.json" ]; then
+            echo "🏛️ Initializing with sample sites..."
+            cp ../data/sample_sites.json ../data/sites.json || echo "No sample sites found"
+          fi
+      
+      - name: 🧪 Test scraper health
+        run: |
+          cd backend
+          echo "🔍 Testing scraper components..."
+          
+          # Test CLI is working
+          python main.py --help
+          
+          # Test data loading
+          python main.py stats
+          
+          # Test site configurations
+          python main.py list-sites
+      
+      - name: 🕵️ Execute surveillance contract scraping
+        id: scrape
+        run: |
+          cd backend
+          echo "🚨 MONITORING GOVERNMENT SURVEILLANCE CONTRACTS 🚨"
+          echo "⏰ Scrape started at: $(date -u)"
+          
+          # Determine scraping parameters
+          FORCE_FLAG=""
+          SITE_FLAG=""
+          
+          if [ "${{ github.event.inputs.force_full_scan }}" = "true" ]; then
+            FORCE_FLAG="--force"
+            echo "🔄 Force full scan enabled"
+          fi
+          
+          if [ -n "${{ github.event.inputs.target_site }}" ]; then
+            SITE_FLAG="--site-id ${{ github.event.inputs.target_site }}"
+            echo "🎯 Targeting specific site: ${{ github.event.inputs.target_site }}"
+          fi
+          
+          # Execute the scraping with error handling
+          set +e  # Don't exit on errors
+          python main.py scrape $FORCE_FLAG $SITE_FLAG 2>&1 | tee ../logs/scrape_$(date +%Y%m%d_%H%M%S).log
+          SCRAPE_EXIT_CODE=$?
+          set -e
+          
+          echo "scrape_exit_code=$SCRAPE_EXIT_CODE" >> $GITHUB_OUTPUT
+          
+          if [ $SCRAPE_EXIT_CODE -eq 0 ]; then
+            echo "✅ Scraping completed successfully"
+            echo "scrape_success=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Scraping failed with exit code: $SCRAPE_EXIT_CODE"
+            echo "scrape_success=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Check for new surveillance contracts
+          python -c "
+          import json
+          import sys
+          from datetime import datetime, timedelta
+          
+          try:
+              with open('../data/rfps.json', 'r') as f:
+                  data = json.load(f)
+              
+              recent_rfps = []
+              recent_threshold = datetime.now() - timedelta(hours=6)
+              
+              for rfp in data.get('rfps', []):
+                  detected_at = datetime.fromisoformat(rfp['detected_at'].replace('Z', '+00:00'))
+                  if detected_at > recent_threshold:
+                      recent_rfps.append(rfp)
+              
+              print(f'📊 Found {len(recent_rfps)} new RFPs in last 6 hours')
+              
+              # Check for high-priority surveillance contracts
+              surveillance_contracts = []
+              for rfp in recent_rfps:
+                  title_lower = rfp['title'].lower()
+                  if any(keyword in title_lower for keyword in [
+                      'surveillance', 'security', 'biometric', 'facial recognition',
+                      'monitoring', 'intelligence', 'camera', 'tracking'
+                  ]):
+                      surveillance_contracts.append(rfp)
+              
+              if surveillance_contracts:
+                  print(f'🚨 ALERT: {len(surveillance_contracts)} potential surveillance contracts detected!')
+                  for contract in surveillance_contracts:
+                      print(f'  - {contract[\"title\"]} ({contract[\"source_site\"]})')
+              
+              print(f'new_rfps_count={len(recent_rfps)}')
+              print(f'surveillance_count={len(surveillance_contracts)}')
+              
+          except Exception as e:
+              print(f'Error analyzing RFPs: {e}')
+              print('new_rfps_count=0')
+              print('surveillance_count=0')
+          " >> $GITHUB_OUTPUT
+      
+      - name: 📊 Generate scraping report
+        if: always()
+        run: |
+          cd backend
+          echo "📋 SURVEILLANCE CONTRACT MONITORING REPORT"
+          echo "======================================="
+          echo "🕐 Execution Time: $(date -u)"
+          echo "🔄 Trigger: ${{ github.event_name }}"
+          
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "⏰ Scheduled scan (every 6 hours)"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "🔧 Manual trigger"
+          else
+            echo "🚀 Code update trigger"
+          fi
+          
+          echo ""
+          echo "📈 STATISTICS:"
+          python main.py stats || echo "❌ Could not retrieve stats"
+          
+          echo ""
+          echo "🏛️ MONITORED SITES:"
+          python main.py list-sites || echo "❌ Could not list sites"
+          
+          echo ""
+          echo "🔍 RECENT ACTIVITY:"
+          if [ -f "../data/rfps.json" ]; then
+            python -c "
+            import json
+            from datetime import datetime, timedelta
+            
+            with open('../data/rfps.json', 'r') as f:
+                data = json.load(f)
+            
+            recent_rfps = []
+            recent_threshold = datetime.now() - timedelta(hours=24)
+            
+            for rfp in data.get('rfps', []):
+                try:
+                    detected_at = datetime.fromisoformat(rfp['detected_at'].replace('Z', '+00:00'))
+                    if detected_at > recent_threshold:
+                        recent_rfps.append((rfp, detected_at))
+                except:
+                    pass
+            
+            recent_rfps.sort(key=lambda x: x[1], reverse=True)
+            
+            if recent_rfps:
+                print(f'📋 {len(recent_rfps)} RFPs detected in last 24 hours:')
+                for rfp, detected_at in recent_rfps[:10]:  # Show latest 10
+                    print(f'  • {rfp[\"title\"]} ({rfp[\"source_site\"]}) - {detected_at.strftime(\"%H:%M UTC\")}')
+            else:
+                print('📭 No new RFPs in last 24 hours')
+            "
+          else
+            echo "❌ No RFPs data file found"
+          fi
+      
+      - name: 🔄 Archive historical data
+        if: steps.scrape.outputs.scrape_success == 'true'
+        run: |
+          cd data
+          
+          # Create timestamped backup
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          mkdir -p history/$TIMESTAMP
+          
+          # Backup current data with timestamp
+          if [ -f "rfps.json" ]; then
+            cp rfps.json history/$TIMESTAMP/rfps_$TIMESTAMP.json
+          fi
+          
+          if [ -f "sites.json" ]; then
+            cp sites.json history/$TIMESTAMP/sites_$TIMESTAMP.json
+          fi
+          
+          echo "📚 Archived data to history/$TIMESTAMP/"
+          
+          # Keep only last 30 days of history (cleanup old backups)
+          find history -type d -name "20*" -mtime +30 -exec rm -rf {} + 2>/dev/null || true
+      
+      - name: 💾 Commit surveillance data updates
+        if: steps.scrape.outputs.scrape_success == 'true'
+        run: |
+          # Configure git for automated commits
+          git config --local user.email "action@github.com"
+          git config --local user.name "RFP Surveillance Monitor"
+          
+          # Add updated data files
+          git add data/ logs/ || true
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "📭 No new surveillance contracts detected - no changes to commit"
+          else
+            # Create commit with surveillance monitoring context
+            COMMIT_MSG="🕵️ Surveillance Contract Update - $(date -u '+%Y-%m-%d %H:%M UTC')"
+            
+            if [ "${{ steps.scrape.outputs.new_rfps_count }}" -gt "0" ]; then
+              COMMIT_MSG="$COMMIT_MSG - ${{ steps.scrape.outputs.new_rfps_count }} new RFPs"
+            fi
+            
+            if [ "${{ steps.scrape.outputs.surveillance_count }}" -gt "0" ]; then
+              COMMIT_MSG="$COMMIT_MSG - 🚨 ${{ steps.scrape.outputs.surveillance_count }} surveillance contracts"
+            fi
+            
+            git commit -m "$COMMIT_MSG"
+            git push
+            
+            echo "✅ Committed surveillance contract data updates"
+            echo "🔗 View changes: ${{ github.server_url }}/${{ github.repository }}/commit/$(git rev-parse HEAD)"
+          fi
+      
+      - name: 🚨 Create surveillance alert issue
+        if: steps.scrape.outputs.surveillance_count > 0
         uses: actions/github-script@v7
         with:
           script: |
-            github.rest.issues.create({
+            const surveillanceCount = ${{ steps.scrape.outputs.surveillance_count }};
+            const newRfpsCount = ${{ steps.scrape.outputs.new_rfps_count }};
+            
+            const title = `🚨 SURVEILLANCE ALERT: ${surveillanceCount} potential surveillance contracts detected`;
+            
+            const body = `
+            ## 🚨 Government Surveillance Contract Alert
+            
+            **Detection Time:** ${new Date().toUTCString()}
+            **Monitoring Run:** ${{ github.run_number }}
+            
+            ### 📊 Summary
+            - **🔍 Total New RFPs:** ${newRfpsCount}
+            - **🚨 Potential Surveillance Contracts:** ${surveillanceCount}
+            - **⚡ Trigger:** ${{ github.event_name }}
+            
+            ### 🎯 Action Required
+            - [ ] Review flagged contracts for surveillance technology
+            - [ ] Verify Olympic 2028 connections
+            - [ ] Document concerning procurement patterns
+            - [ ] Alert community networks if needed
+            
+            ### 🔗 Resources
+            - [📊 View Dashboard](https://your-username.github.io/Gov_Oversight)
+            - [📋 Latest Data](https://github.com/${{ github.repository }}/blob/main/data/rfps.json)
+            - [🔍 Workflow Run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            
+            ### 🤖 Automated Detection
+            This alert was automatically generated by the RFP Surveillance Monitor.
+            Keywords detected: surveillance, security, biometric, facial recognition, monitoring, intelligence, camera, tracking
+            
+            ---
+            *🕵️ Transparency through technology - monitoring government overreach*
+            `;
+            
+            await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: 'Automated Scraping Failed - ' + new Date().toISOString().split('T')[0],
-              body: `## Scraping Error Report
-              
-              **Failure Time:** ${new Date().toISOString()}
-              **Workflow Run:** [${context.runId}](${context.payload.repository.html_url}/actions/runs/${context.runId})
-              
-              The automated RFP scraping process encountered an error. Please review the workflow logs and investigate potential issues:
-              
-              - Network connectivity problems
-              - Website structure changes
-              - Configuration errors
-              - Rate limiting issues
-              
-              This issue was automatically created to ensure scraping failures don't go unnoticed.`,
-              labels: ['bug', 'automation', 'scraping']
-            })
+              title: title,
+              body: body,
+              labels: ['surveillance-alert', 'automated', 'high-priority']
+            });
+      
+      - name: 📝 Report scraping failure
+        if: steps.scrape.outputs.scrape_success == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `❌ RFP Scraping Failed - ${new Date().toISOString().split('T')[0]}`;
+            
+            const body = `
+            ## ❌ Surveillance Monitoring System Failure
+            
+            **Failure Time:** ${new Date().toUTCString()}
+            **Workflow Run:** ${{ github.run_number }}
+            **Exit Code:** ${{ steps.scrape.outputs.scrape_exit_code }}
+            
+            ### 🔍 Details
+            - **Trigger:** ${{ github.event_name }}
+            - **Repository:** ${{ github.repository }}
+            - **Branch:** ${{ github.ref }}
+            
+            ### 🛠️ Troubleshooting
+            - [ ] Check scraper logs in workflow output
+            - [ ] Verify site configurations are valid
+            - [ ] Test individual site connectivity
+            - [ ] Review recent code changes
+            
+            ### 🔗 Investigation Links
+            - [🔍 Failed Workflow](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            - [📋 Site Configurations](https://github.com/${{ github.repository }}/blob/main/data/sites.json)
+            - [🔧 Scraper Code](https://github.com/${{ github.repository }}/tree/main/backend)
+            
+            ### ⚠️ Impact
+            Government surveillance contract monitoring is currently disrupted.
+            Manual intervention required to restore automated oversight.
+            
+            ---
+            *🤖 Automated failure detection - ensuring continuous surveillance monitoring*
+            `;
+            
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: body,
+              labels: ['scraping-failure', 'automated', 'urgent']
+            });
+      
+      - name: 📊 Upload scraping logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surveillance-scraping-logs-${{ github.run_number }}
+          path: |
+            backend/logs/
+            backend/rfp_monitor.log
+          retention-days: 30

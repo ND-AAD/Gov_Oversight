@@ -1,0 +1,60 @@
+{
+  "metadata": {
+    "last_updated": "2024-12-16T15:30:00Z",
+    "total_rfps": 3,
+    "version": "1.0"
+  },
+  "rfps": [
+    {
+      "id": "la_city_001",
+      "title": "Olympic Village Security Infrastructure and Surveillance Systems",
+      "url": "https://example.gov/rfp/olympic-security-001",
+      "posted_date": "2024-12-15",
+      "closing_date": "2025-01-15",
+      "description": "Comprehensive security infrastructure including CCTV networks, access control systems, and perimeter monitoring for the LA 2028 Olympic Village. Requirements include AI-powered surveillance capabilities, facial recognition systems, and integrated threat detection.",
+      "source_site": "LA City Portal",
+      "content_hash": "hash001",
+      "detected_at": "2024-12-15T10:00:00Z",
+      "categories": ["Security", "Technology", "Olympics", "Surveillance"],
+      "issuer": "Los Angeles Police Department",
+      "event_association": "Olympics 2028",
+      "procurement_type": "Technology",
+      "contract_value": 15000000,
+      "status": "active"
+    },
+    {
+      "id": "metro_la_001",
+      "title": "Transportation Hub Digital Signage and Information Systems",
+      "url": "https://example.gov/rfp/transport-digital-002",
+      "posted_date": "2024-12-10",
+      "closing_date": "2024-12-30",
+      "description": "Design, installation, and maintenance of digital signage networks across major transportation hubs including LAX, Union Station, and metro stations. System must support real-time updates, multilingual content, and emergency broadcasts.",
+      "source_site": "Metro LA Procurement",
+      "content_hash": "hash002",
+      "detected_at": "2024-12-10T14:30:00Z",
+      "categories": ["Transportation", "Digital Infrastructure"],
+      "issuer": "Los Angeles Metro",
+      "event_association": "Olympics 2028",
+      "procurement_type": "Technology",
+      "contract_value": 8500000,
+      "status": "closing_soon"
+    },
+    {
+      "id": "ca_state_001",
+      "title": "Olympic Stadium Construction and Infrastructure Development",
+      "url": "https://example.gov/rfp/stadium-construction-003",
+      "posted_date": "2024-12-01",
+      "closing_date": "2025-02-28",
+      "description": "Major construction project for Olympic stadium infrastructure including seating, accessibility features, technology integration, and sustainable building practices. Must meet IOC requirements and LEED certification standards.",
+      "source_site": "CA State Contracts",
+      "content_hash": "hash003",
+      "detected_at": "2024-12-01T09:15:00Z",
+      "categories": ["Construction", "Infrastructure"],
+      "issuer": "California Department of General Services",
+      "event_association": "Olympics 2028",
+      "procurement_type": "Construction",
+      "contract_value": 125000000,
+      "status": "active"
+    }
+  ]
+}

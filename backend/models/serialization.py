@@ -421,3 +421,93 @@ class DataManager:
                 "error": str(e),
                 "last_updated": datetime.now().isoformat()
             }
+    
+    def ignore_rfp(self, rfp_id: str) -> bool:
+        """
+        Move an RFP to the ignored list.
+        
+        Args:
+            rfp_id: ID of RFP to ignore
+            
+        Returns:
+            True if RFP was found and ignored, False otherwise
+        """
+        try:
+            # Load current ignored RFPs
+            ignored_rfps = self.load_ignored_rfps()
+            
+            # Check if already ignored
+            if rfp_id in ignored_rfps:
+                logger.warning(f"RFP {rfp_id} is already ignored")
+                return True
+            
+            # Find the RFP to ignore
+            rfp = self.get_rfp_by_id(rfp_id)
+            if not rfp:
+                logger.warning(f"RFP {rfp_id} not found for ignoring")
+                return False
+            
+            # Add to ignored list
+            ignored_rfps.append(rfp_id)
+            self.save_ignored_rfps(ignored_rfps)
+            
+            # Optionally remove from main RFPs list (keep for audit trail)
+            # self.remove_rfp(rfp_id)
+            
+            logger.info(f"Ignored RFP: {rfp_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to ignore RFP {rfp_id}: {e}")
+            return False
+    
+    def load_ignored_rfps(self) -> List[str]:
+        """
+        Load list of ignored RFP IDs.
+        
+        Returns:
+            List of ignored RFP IDs
+        """
+        if not self.ignored_file.exists():
+            return []
+        
+        try:
+            with open(self.ignored_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            if isinstance(data, list):
+                return data
+            elif isinstance(data, dict) and 'ignored_rfps' in data:
+                return data['ignored_rfps']
+            else:
+                return []
+                
+        except (json.JSONDecodeError, Exception) as e:
+            logger.error(f"Failed to load ignored RFPs: {e}")
+            return []
+    
+    def save_ignored_rfps(self, ignored_rfp_ids: List[str]) -> None:
+        """
+        Save list of ignored RFP IDs.
+        
+        Args:
+            ignored_rfp_ids: List of RFP IDs to mark as ignored
+        """
+        try:
+            data = {
+                "metadata": {
+                    "last_updated": datetime.now().isoformat(),
+                    "total_ignored": len(ignored_rfp_ids),
+                    "version": "1.0"
+                },
+                "ignored_rfps": ignored_rfp_ids
+            }
+            
+            with open(self.ignored_file, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+            
+            logger.info(f"Saved {len(ignored_rfp_ids)} ignored RFPs to {self.ignored_file}")
+            
+        except Exception as e:
+            logger.error(f"Failed to save ignored RFPs: {e}")
+            raise

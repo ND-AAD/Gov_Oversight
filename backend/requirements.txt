@@ -30,3 +30,7 @@ mypy==1.7.1
 
 # Optional: For advanced text processing
 regex==2023.10.3
+
+# API server for development
+fastapi==0.104.1
+uvicorn[standard]==0.24.0

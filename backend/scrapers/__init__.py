@@ -7,11 +7,13 @@ for resilient extraction of RFP data from government websites.
 
 from .location_binder import LocationBinder, ElementCandidate, SelectorStrategy
 from .base_scraper import BaseScraper, ScrapingSession
+from .rfp_scraper import RFPScraper
 
 __all__ = [
     'LocationBinder',
     'ElementCandidate', 
     'SelectorStrategy',
     'BaseScraper',
-    'ScrapingSession'
+    'ScrapingSession',
+    'RFPScraper'
 ]
