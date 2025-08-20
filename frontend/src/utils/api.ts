@@ -2,9 +2,9 @@ import axios from 'axios';
 import type { RFP, SiteConfig, ApiResponse } from '../types/rfp';
 
 // API configuration - supports both development and static hosting
-const API_MODE = import.meta.env.VITE_API_MODE || 'development';
+const API_MODE = import.meta.env.VITE_API_MODE || (window.location.hostname.includes('github.io') ? 'static' : 'development');
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001';
-const STATIC_DATA_BASE = import.meta.env.VITE_STATIC_DATA_BASE || '/data';
+const STATIC_DATA_BASE = import.meta.env.VITE_STATIC_DATA_BASE || '/Gov_Oversight/data';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -60,7 +60,8 @@ export const getRFPs = async (): Promise<RFP[]> => {
     } catch (apiError) {
       // If API server is not available, try to load from static files
       console.warn('API server not available, loading from static files');
-      const response = await axios.get('/data/rfps.json');
+      const staticPath = window.location.hostname.includes('github.io') ? '/Gov_Oversight/data/rfps.json' : '/data/rfps.json';
+      const response = await axios.get(staticPath);
       return response.data.rfps || [];
     }
   } catch (error) {
@@ -98,7 +99,8 @@ export const getSites = async (): Promise<SiteConfig[]> => {
     } catch (apiError) {
       // If API server is not available, try to load from static files
       console.warn('API server not available, loading site configs from static files');
-      const response = await axios.get('/data/sites.json');
+      const staticPath = window.location.hostname.includes('github.io') ? '/Gov_Oversight/data/sites.json' : '/data/sites.json';
+      const response = await axios.get(staticPath);
       return response.data.sites || [];
     }
   } catch (error) {
@@ -190,7 +192,8 @@ export const checkOlympicRelevance = async (text: string): Promise<{
 // Fallback to static JSON files for GitHub Pages
 export const loadStaticRFPs = async (): Promise<RFP[]> => {
   try {
-    const response = await fetch('/data/rfps.json');
+    const staticPath = window.location.hostname.includes('github.io') ? '/Gov_Oversight/data/rfps.json' : '/data/rfps.json';
+    const response = await fetch(staticPath);
     const data = await response.json();
     
     if (Array.isArray(data)) {
@@ -208,7 +211,8 @@ export const loadStaticRFPs = async (): Promise<RFP[]> => {
 
 export const loadStaticSites = async (): Promise<SiteConfig[]> => {
   try {
-    const response = await fetch('/data/sites.json');
+    const staticPath = window.location.hostname.includes('github.io') ? '/Gov_Oversight/data/sites.json' : '/data/sites.json';
+    const response = await fetch(staticPath);
     const data = await response.json();
     
     if (Array.isArray(data)) {

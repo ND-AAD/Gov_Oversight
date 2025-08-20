@@ -221,7 +221,7 @@ jobs:
           fi
           
           # Create commit body with newlines
-          printf -v COMMIT_BODY "- Scraped at: %s\n- Total RFPs: %s\n- Trigger: %s\n- Workflow: %s #%s" \
+          printf -v COMMIT_BODY -- "- Scraped at: %s\n- Total RFPs: %s\n- Trigger: %s\n- Workflow: %s #%s" \
             "$(date -u +"%Y-%m-%d %H:%M:%S UTC")" \
             "${{ steps.scrape.outputs.rfp_count }}" \
             "${{ steps.scrape_check.outputs.scrape_reason }}" \
