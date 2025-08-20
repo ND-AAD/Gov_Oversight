@@ -11,7 +11,7 @@ on:
       force_full_scrape:
         description: 'Force full scrape of all sites'
         required: false
-        default: 'false'
+        default: false
         type: boolean
       target_sites:
         description: 'Comma-separated site IDs to scrape (leave empty for all)'
@@ -145,16 +145,8 @@ jobs:
           date -u +"%Y-%m-%dT%H:%M:%SZ" > ../data/last_scrape.txt
           
           # Count new/updated RFPs
-          NEW_RFPS=$(python -c "
-import json
-try:
-    with open('../data/rfps.json', 'r') as f:
-        rfps = json.load(f)
-    print(len(rfps))
-except:
-    print(0)
-" 2>/dev/null || echo "0")
-          echo "rfp_count=$NEW_RFPS" >> $GITHUB_OUTPUT
+          NEW_RFPS_COUNT=$(python ../.github/scripts/count_rfps.py 2>/dev/null || echo "0")
+          echo "rfp_count=$NEW_RFPS_COUNT" >> $GITHUB_OUTPUT
           
         else
           echo "scrape_success=false" >> $GITHUB_OUTPUT
@@ -176,34 +168,10 @@ except:
         fi
         
         # Keep only last 30 days of history to prevent repo bloat
-        find data/history -name "rfps_*.json" -type f -mtime +30 -delete
+        find data/history -name "rfps_*.json" -type f -mtime +30 -delete 2>/dev/null || true
         
         # Create summary statistics
-        python -c "
-import json
-import os
-from datetime import datetime
-
-try:
-    with open('data/rfps.json', 'r') as f:
-        rfps = json.load(f)
-    
-    stats = {
-        'timestamp': datetime.utcnow().isoformat() + 'Z',
-        'total_rfps': len(rfps),
-        'active_rfps': len([r for r in rfps if r.get('extracted_fields', {}).get('status', '').lower() == 'active']),
-        'olympic_related': len([r for r in rfps if 'olympic' in r.get('categories', [])]),
-        'surveillance_flagged': len([r for r in rfps if any(cat in ['surveillance', 'security', 'monitoring'] for cat in r.get('categories', []))]),
-        'last_updated': datetime.utcnow().isoformat() + 'Z'
-    }
-    
-    with open('data/stats.json', 'w') as f:
-        json.dump(stats, f, indent=2)
-    
-    print(f'📊 Updated statistics: {stats[\"total_rfps\"]} total RFPs, {stats[\"olympic_related\"]} Olympic-related')
-except Exception as e:
-    print(f'Warning: Could not generate stats: {e}')
-"
+        python .github/scripts/generate_stats.py
 
     - name: Commit and push changes
       if: steps.scrape_check.outputs.should_scrape == 'true' && steps.scrape.outputs.scrape_success == 'true'
@@ -222,14 +190,15 @@ except Exception as e:
             COMMIT_MSG="👤 Manual trigger: RFP data update"
           fi
           
-          COMMIT_MSG="$COMMIT_MSG
+          # Create commit body with newlines
+          printf -v COMMIT_BODY "- Scraped at: %s\n- Total RFPs: %s\n- Trigger: %s\n- Workflow: %s #%s" \
+            "$(date -u +"%Y-%m-%d %H:%M:%S UTC")" \
+            "${{ steps.scrape.outputs.rfp_count }}" \
+            "${{ steps.scrape_check.outputs.scrape_reason }}" \
+            "${{ github.workflow }}" \
+            "${{ github.run_number }}"
 
-- Scraped at: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
-- Total RFPs: ${{ steps.scrape.outputs.rfp_count }}
-- Trigger: ${{ steps.scrape_check.outputs.scrape_reason }}
-- Workflow: ${{ github.workflow }} #${{ github.run_number }}"
-
-          git commit -m "$COMMIT_MSG"
+          git commit -m "$COMMIT_MSG" -m "$COMMIT_BODY"
           git push
           
           echo "✅ Changes committed and pushed to repository"

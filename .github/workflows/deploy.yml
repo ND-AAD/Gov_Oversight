@@ -59,7 +59,7 @@ jobs:
         # Copy current RFP data to frontend public directory for static access
         if [ -f "data/rfps.json" ]; then
           cp data/rfps.json frontend/public/data/rfps.json
-          echo "✅ Copied RFP data ($(wc -l < data/rfps.json) lines)"
+          echo "✅ Copied RFP data"
         else
           echo "⚠️ No RFP data found, creating empty dataset"
           echo "[]" > frontend/public/data/rfps.json
@@ -74,75 +74,71 @@ jobs:
           cp data/sample_sites.json frontend/public/data/sites.json
         fi
         
-        # Copy or generate statistics
-        if [ -f "data/stats.json" ]; then
-          cp data/stats.json frontend/public/data/stats.json
-        else
-          echo "📊 Generating statistics from RFP data..."
-          node -e "
-            const fs = require('fs');
-            try {
-              const rfps = JSON.parse(fs.readFileSync('frontend/public/data/rfps.json', 'utf8'));
-              const stats = {
-                timestamp: new Date().toISOString(),
-                total_rfps: rfps.length,
-                active_rfps: rfps.filter(r => r.extracted_fields?.status?.toLowerCase() === 'active').length,
-                olympic_related: rfps.filter(r => r.categories?.includes('olympic')).length,
-                surveillance_flagged: rfps.filter(r => 
-                  r.categories?.some(cat => ['surveillance', 'security', 'monitoring'].includes(cat))
-                ).length,
-                last_updated: new Date().toISOString()
-              };
-              fs.writeFileSync('frontend/public/data/stats.json', JSON.stringify(stats, null, 2));
-              console.log('✅ Generated statistics:', JSON.stringify(stats, null, 2));
-            } catch (e) {
-              console.error('Error generating stats:', e.message);
-              const fallbackStats = {
-                timestamp: new Date().toISOString(),
-                total_rfps: 0,
-                active_rfps: 0,
-                olympic_related: 0,
-                surveillance_flagged: 0,
-                last_updated: new Date().toISOString()
-              };
-              fs.writeFileSync('frontend/public/data/stats.json', JSON.stringify(fallbackStats, null, 2));
-            }
-          "
-        fi
-        
+        # Generate statistics from RFP data
+        node -e "
+          const fs = require('fs');
+          try {
+            const rfps = JSON.parse(fs.readFileSync('frontend/public/data/rfps.json', 'utf8'));
+            const stats = {
+              timestamp: new Date().toISOString(),
+              total_rfps: rfps.length,
+              active_rfps: rfps.filter(r => r.extracted_fields?.status?.toLowerCase() === 'active').length,
+              olympic_related: rfps.filter(r => r.categories?.includes('olympic')).length,
+              surveillance_flagged: rfps.filter(r => 
+                r.categories?.some(cat => ['surveillance', 'security', 'monitoring'].includes(cat))
+              ).length,
+              last_updated: new Date().toISOString()
+            };
+            fs.writeFileSync('frontend/public/data/stats.json', JSON.stringify(stats, null, 2));
+            console.log('✅ Generated statistics');
+          } catch (e) {
+            console.error('Error generating stats:', e.message);
+            const fallbackStats = {
+              timestamp: new Date().toISOString(),
+              total_rfps: 0,
+              active_rfps: 0,
+              olympic_related: 0,
+              surveillance_flagged: 0,
+              last_updated: new Date().toISOString()
+            };
+            fs.writeFileSync('frontend/public/data/stats.json', JSON.stringify(fallbackStats, null, 2));
+          }
+        "
+
+    - name: Create deployment metadata
+      run: |
         # Create metadata file for deployment info
-        cat > frontend/public/data/metadata.json << EOF
-{
-  "deployment": {
-    "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-    "commit_sha": "${{ github.sha }}",
-    "workflow_run": "${{ github.run_number }}",
-    "triggered_by": "${{ github.event_name }}",
-    "branch": "${{ github.ref_name }}"
-  },
-  "data_sources": {
-    "rfps_file": "data/rfps.json",
-    "sites_file": "data/sites.json", 
-    "stats_file": "data/stats.json"
-  },
-  "build_info": {
-    "node_version": "${{ env.NODE_VERSION }}",
-    "build_time": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-  }
-}
-EOF
+        cat > frontend/public/data/metadata.json << 'METADATA_EOF'
+        {
+          "deployment": {
+            "timestamp": "TIMESTAMP_PLACEHOLDER",
+            "commit_sha": "COMMIT_SHA_PLACEHOLDER",
+            "workflow_run": "WORKFLOW_RUN_PLACEHOLDER",
+            "triggered_by": "TRIGGERED_BY_PLACEHOLDER",
+            "branch": "BRANCH_PLACEHOLDER"
+          },
+          "data_sources": {
+            "rfps_file": "data/rfps.json",
+            "sites_file": "data/sites.json", 
+            "stats_file": "data/stats.json"
+          },
+          "build_info": {
+            "node_version": "NODE_VERSION_PLACEHOLDER",
+            "build_time": "BUILD_TIME_PLACEHOLDER"
+          }
+        }
+        METADATA_EOF
+        
+        # Replace placeholders with actual values
+        sed -i 's/TIMESTAMP_PLACEHOLDER/'"$(date -u +"%Y-%m-%dT%H:%M:%SZ")"'/g' frontend/public/data/metadata.json
+        sed -i 's/COMMIT_SHA_PLACEHOLDER/${{ github.sha }}/g' frontend/public/data/metadata.json
+        sed -i 's/WORKFLOW_RUN_PLACEHOLDER/${{ github.run_number }}/g' frontend/public/data/metadata.json
+        sed -i 's/TRIGGERED_BY_PLACEHOLDER/${{ github.event_name }}/g' frontend/public/data/metadata.json
+        sed -i 's/BRANCH_PLACEHOLDER/${{ github.ref_name }}/g' frontend/public/data/metadata.json
+        sed -i 's/NODE_VERSION_PLACEHOLDER/${{ env.NODE_VERSION }}/g' frontend/public/data/metadata.json
+        sed -i 's/BUILD_TIME_PLACEHOLDER/'"$(date -u +"%Y-%m-%dT%H:%M:%SZ")"'/g' frontend/public/data/metadata.json
         
         echo "📦 Data preparation complete"
-
-    - name: Configure build for GitHub Pages
-      run: |
-        cd frontend
-        
-        echo "🌐 Configuring for GitHub Pages deployment"
-        echo "Repository: ${{ github.repository }}"
-        echo "Base URL: /Gov_Oversight/"
-        
-        # The vite.config.ts is already configured for GitHub Pages deployment
 
     - name: Build frontend application
       run: |
@@ -178,34 +174,35 @@ EOF
         cp index.html 404.html
         
         # Add robots.txt for ethical scraping visibility
-        cat > robots.txt << 'EOF'
-# LA 2028 RFP Monitor - Public Oversight Tool
-# This site monitors government procurement for transparency
+        cat > robots.txt << 'ROBOTS_EOF'
+        # LA 2028 RFP Monitor - Public Oversight Tool
+        # This site monitors government procurement for transparency
 
-User-agent: *
-Allow: /
+        User-agent: *
+        Allow: /
 
-# Sitemap (if generated)
-Sitemap: https://nd-aad.github.io/Gov_Oversight/sitemap.xml
+        # Sitemap (if generated)
+        Sitemap: https://nd-aad.github.io/Gov_Oversight/sitemap.xml
 
-# Contact for questions about this monitoring tool
-# See GitHub repository for more information
-EOF
+        # Contact for questions about this monitoring tool
+        # See GitHub repository for more information
+        ROBOTS_EOF
         
         # Create a simple sitemap
-        cat > sitemap.xml << 'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>https://nd-aad.github.io/Gov_Oversight/</loc>
-    <lastmod>EOF
-        date -u +"%Y-%m-%dT%H:%M:%SZ" >> sitemap.xml
-        cat >> sitemap.xml << 'EOF'</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-  </url>
-</urlset>
-EOF
+        cat > sitemap.xml << 'SITEMAP_EOF'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+          <url>
+            <loc>https://nd-aad.github.io/Gov_Oversight/</loc>
+            <lastmod>LASTMOD_PLACEHOLDER</lastmod>
+            <changefreq>daily</changefreq>
+            <priority>1.0</priority>
+          </url>
+        </urlset>
+        SITEMAP_EOF
+        
+        # Replace lastmod placeholder
+        sed -i 's/LASTMOD_PLACEHOLDER/'"$(date -u +"%Y-%m-%dT%H:%M:%SZ")"'/g' sitemap.xml
         
         echo "📁 Build optimization complete"
 
@@ -252,7 +249,7 @@ EOF
       run: |
         if [ "${{ needs.deploy.result }}" = "success" ]; then
           echo "🎉 LA 2028 RFP Monitor successfully deployed!"
-          echo "🌐 Public URL: ${{ needs.deploy.outputs.page_url || 'https://nd-aad.github.io/Gov_Oversight/' }}"
+          echo "🌐 Public URL: https://nd-aad.github.io/Gov_Oversight/"
           echo "📊 Government RFP transparency tool is now live"
         else
           echo "❌ Deployment failed"
