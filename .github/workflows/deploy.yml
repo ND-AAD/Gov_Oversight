@@ -1,191 +1,302 @@
-name: 🚀 Deploy Surveillance Dashboard
+name: Deploy to GitHub Pages
 
 on:
-  # Deploy when new surveillance data is committed
+  # Triggered by successful scraping workflow
+  workflow_dispatch:
+  
+  # Also deploy on pushes to main that affect frontend
   push:
     branches: [ main ]
     paths:
-      - 'data/**'
       - 'frontend/**'
+      - 'data/**'
       - '.github/workflows/deploy.yml'
-  
-  # Allow manual deployment
-  workflow_dispatch:
 
-  # Deploy after successful scraping
-  workflow_run:
-    workflows: ["🕵️ RFP Surveillance Monitor"]
-    types:
-      - completed
+  # Manual deployment trigger
+  workflow_call:
 
-# Required for GitHub Pages deployment
+# Allow only one concurrent deployment
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Prevent concurrent deployments
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
+env:
+  NODE_VERSION: '18'
 
 jobs:
-  build-surveillance-dashboard:
-    name: 🏗️ Build Public Surveillance Dashboard
+  build:
     runs-on: ubuntu-latest
     
     steps:
-      - name: 📥 Checkout surveillance monitoring code
-        uses: actions/checkout@v4
-      
-      - name: 🟢 Setup Node.js for frontend build
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-      
-      - name: 📦 Install frontend dependencies
-        run: |
-          cd frontend
-          npm ci
-      
-      - name: 📊 Prepare surveillance data for static hosting
-        run: |
-          echo "🔄 Preparing surveillance contract data..."
-          
-          # Ensure public data directory exists
-          mkdir -p frontend/public/data
-          
-          # Copy latest RFP data to public directory for static access
-          if [ -f "data/rfps.json" ]; then
-            cp data/rfps.json frontend/public/data/
-            echo "✅ RFP data copied to public directory"
-          else
-            echo "⚠️ No RFP data found - using sample data"
-            cp data/sample_rfps.json frontend/public/data/rfps.json 2>/dev/null || echo "{\"rfps\": []}" > frontend/public/data/rfps.json
-          fi
-          
-          # Copy site configurations
-          if [ -f "data/sites.json" ]; then
-            cp data/sites.json frontend/public/data/
-            echo "✅ Site data copied to public directory"
-          else
-            echo "⚠️ No site data found - using sample data"
-            cp data/sample_sites.json frontend/public/data/sites.json 2>/dev/null || echo "{\"sites\": []}" > frontend/public/data/sites.json
-          fi
-          
-          # Generate metadata for the dashboard
-          cat > frontend/public/data/metadata.json << EOF
-          {
-            "last_updated": "$(date -u -Iseconds)",
-            "deployment_id": "${{ github.run_number }}",
-            "commit_sha": "${{ github.sha }}",
-            "workflow_run": "${{ github.run_id }}",
-            "repository": "${{ github.repository }}",
-            "monitoring_mission": "2028 Olympics Surveillance Contract Transparency",
-            "data_sources": "LA City, CA State, Metro LA procurement portals",
-            "update_frequency": "Every 6 hours via automated scraping",
-            "alert_keywords": ["surveillance", "security", "biometric", "facial recognition", "monitoring", "intelligence", "camera", "tracking"]
-          }
-          EOF
-          
-          echo "📋 Generated dashboard metadata"
-      
-      - name: 🏗️ Build surveillance dashboard for production
-        run: |
-          cd frontend
-          
-          echo "🏗️ Building public surveillance transparency dashboard..."
-          
-          # Set production environment variables
-          export VITE_API_MODE=static
-          export VITE_APP_TITLE="LA 2028 RFP Surveillance Monitor"
-          export VITE_APP_DESCRIPTION="Public oversight of 2028 Olympics surveillance contracts"
-          export VITE_REPO_URL="${{ github.server_url }}/${{ github.repository }}"
-          export VITE_DEPLOYMENT_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
-          
-          # Build the React app for static hosting
-          npm run build
-          
-          echo "✅ Dashboard built successfully"
-          echo "📊 Build size:"
-          du -sh dist/
-      
-      - name: 🔧 Configure GitHub Pages deployment
-        uses: actions/configure-pages@v4
-      
-      - name: 📤 Upload surveillance dashboard artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: frontend/dist
-          name: surveillance-dashboard
-      
-      - name: 📊 Generate deployment summary
-        run: |
-          echo "## 🚀 Surveillance Dashboard Deployment Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**🎯 Mission:** Public transparency for 2028 Olympics surveillance contracts" >> $GITHUB_STEP_SUMMARY
-          echo "**⏰ Deployed:** $(date -u)" >> $GITHUB_STEP_SUMMARY
-          echo "**🔄 Trigger:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "**📝 Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📊 Data Status" >> $GITHUB_STEP_SUMMARY
-          
-          # Check data files and report status
-          if [ -f "frontend/public/data/rfps.json" ]; then
-            RFP_COUNT=$(python3 -c "import json; print(len(json.load(open('frontend/public/data/rfps.json'))['rfps']))" 2>/dev/null || echo "unknown")
-            echo "- **📋 RFPs Monitored:** $RFP_COUNT surveillance contracts" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          if [ -f "frontend/public/data/sites.json" ]; then
-            SITE_COUNT=$(python3 -c "import json; print(len(json.load(open('frontend/public/data/sites.json'))['sites']))" 2>/dev/null || echo "unknown")
-            echo "- **🏛️ Government Sites:** $SITE_COUNT procurement portals" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          echo "- **🔄 Update Frequency:** Every 6 hours (automated)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🔗 Access Links" >> $GITHUB_STEP_SUMMARY
-          echo "- **🌐 Public Dashboard:** Will be available after deployment" >> $GITHUB_STEP_SUMMARY
-          echo "- **📊 Raw Data:** [\`rfps.json\`](https://github.com/${{ github.repository }}/blob/main/data/rfps.json)" >> $GITHUB_STEP_SUMMARY
-          echo "- **🏛️ Site Configs:** [\`sites.json\`](https://github.com/${{ github.repository }}/blob/main/data/sites.json)" >> $GITHUB_STEP_SUMMARY
-          echo "- **🔍 Source Code:** [GitHub Repository](https://github.com/${{ github.repository }})" >> $GITHUB_STEP_SUMMARY
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-  deploy-to-github-pages:
-    name: 🌐 Deploy to GitHub Pages
-    runs-on: ubuntu-latest
-    needs: build-surveillance-dashboard
-    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: 'frontend/package-lock.json'
+
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm ci
+
+    - name: Prepare data for static deployment
+      run: |
+        echo "📊 Preparing RFP data for static deployment..."
+        
+        # Ensure data directory exists in frontend public
+        mkdir -p frontend/public/data
+        
+        # Copy current RFP data to frontend public directory for static access
+        if [ -f "data/rfps.json" ]; then
+          cp data/rfps.json frontend/public/data/rfps.json
+          echo "✅ Copied RFP data ($(wc -l < data/rfps.json) lines)"
+        else
+          echo "⚠️ No RFP data found, creating empty dataset"
+          echo "[]" > frontend/public/data/rfps.json
+        fi
+        
+        # Copy site configurations
+        if [ -f "data/sites.json" ]; then
+          cp data/sites.json frontend/public/data/sites.json
+          echo "✅ Copied site configurations"
+        else
+          echo "⚠️ No site configurations found, using sample data"
+          cp data/sample_sites.json frontend/public/data/sites.json
+        fi
+        
+        # Copy or generate statistics
+        if [ -f "data/stats.json" ]; then
+          cp data/stats.json frontend/public/data/stats.json
+        else
+          echo "📊 Generating statistics from RFP data..."
+          node -e "
+            const fs = require('fs');
+            try {
+              const rfps = JSON.parse(fs.readFileSync('frontend/public/data/rfps.json', 'utf8'));
+              const stats = {
+                timestamp: new Date().toISOString(),
+                total_rfps: rfps.length,
+                active_rfps: rfps.filter(r => r.extracted_fields?.status?.toLowerCase() === 'active').length,
+                olympic_related: rfps.filter(r => r.categories?.includes('olympic')).length,
+                surveillance_flagged: rfps.filter(r => 
+                  r.categories?.some(cat => ['surveillance', 'security', 'monitoring'].includes(cat))
+                ).length,
+                last_updated: new Date().toISOString()
+              };
+              fs.writeFileSync('frontend/public/data/stats.json', JSON.stringify(stats, null, 2));
+              console.log('✅ Generated statistics:', JSON.stringify(stats, null, 2));
+            } catch (e) {
+              console.error('Error generating stats:', e.message);
+              const fallbackStats = {
+                timestamp: new Date().toISOString(),
+                total_rfps: 0,
+                active_rfps: 0,
+                olympic_related: 0,
+                surveillance_flagged: 0,
+                last_updated: new Date().toISOString()
+              };
+              fs.writeFileSync('frontend/public/data/stats.json', JSON.stringify(fallbackStats, null, 2));
+            }
+          "
+        fi
+        
+        # Create metadata file for deployment info
+        cat > frontend/public/data/metadata.json << EOF
+{
+  "deployment": {
+    "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+    "commit_sha": "${{ github.sha }}",
+    "workflow_run": "${{ github.run_number }}",
+    "triggered_by": "${{ github.event_name }}",
+    "branch": "${{ github.ref_name }}"
+  },
+  "data_sources": {
+    "rfps_file": "data/rfps.json",
+    "sites_file": "data/sites.json", 
+    "stats_file": "data/stats.json"
+  },
+  "build_info": {
+    "node_version": "${{ env.NODE_VERSION }}",
+    "build_time": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  }
+}
+EOF
+        
+        echo "📦 Data preparation complete"
+
+    - name: Configure build for GitHub Pages
+      run: |
+        cd frontend
+        
+        # Set base URL for GitHub Pages deployment
+        REPO_NAME="${{ github.repository }}"
+        BASE_URL="/${REPO_NAME##*/}"
+        
+        echo "🌐 Configuring for GitHub Pages deployment"
+        echo "Repository: ${{ github.repository }}"
+        echo "Base URL: $BASE_URL"
+        
+        # Update vite.config.ts for GitHub Pages deployment
+        if [ -f "vite.config.ts" ]; then
+          # Create a temporary config for production build
+          cp vite.config.ts vite.config.ts.backup
+          
+          # Add base path configuration for GitHub Pages
+          cat > vite.config.ts << 'EOF'
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import path from 'path'
+
+// https://vitejs.dev/config/
+export default defineConfig({
+  plugins: [react()],
+  base: process.env.NODE_ENV === 'production' ? '/Gov_Oversight/' : '/',
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          ui: ['lucide-react']
+        }
+      }
+    }
+  },
+  server: {
+    port: 5173,
+    host: true
+  }
+})
+EOF
+        fi
+
+    - name: Build frontend application
+      run: |
+        cd frontend
+        echo "🏗️ Building frontend application..."
+        
+        # Set production environment
+        export NODE_ENV=production
+        
+        # Build the application
+        npm run build
+        
+        # Verify build output
+        if [ -d "dist" ]; then
+          echo "✅ Build successful"
+          echo "Build size: $(du -sh dist | cut -f1)"
+          echo "Files created: $(find dist -type f | wc -l)"
+        else
+          echo "❌ Build failed - no dist directory created"
+          exit 1
+        fi
+
+    - name: Optimize build for deployment
+      run: |
+        cd frontend/dist
+        
+        echo "⚡ Optimizing build for deployment..."
+        
+        # Create .nojekyll file to bypass Jekyll processing
+        touch .nojekyll
+        
+        # Create 404.html for SPA routing support
+        cp index.html 404.html
+        
+        # Add robots.txt for ethical scraping visibility
+        cat > robots.txt << 'EOF'
+# LA 2028 RFP Monitor - Public Oversight Tool
+# This site monitors government procurement for transparency
+
+User-agent: *
+Allow: /
+
+# Sitemap (if generated)
+Sitemap: https://nd-aad.github.io/Gov_Oversight/sitemap.xml
+
+# Contact for questions about this monitoring tool
+# See GitHub repository for more information
+EOF
+        
+        # Create a simple sitemap
+        cat > sitemap.xml << 'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://nd-aad.github.io/Gov_Oversight/</loc>
+    <lastmod>EOF
+        date -u +"%Y-%m-%dT%H:%M:%SZ" >> sitemap.xml
+        cat >> sitemap.xml << 'EOF'</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>
+EOF
+        
+        echo "📁 Build optimization complete"
+
+    - name: Setup Pages
+      uses: actions/configure-pages@v4
+
+    - name: Upload to GitHub Pages
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: './frontend/dist'
+
+  deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
     
     steps:
-      - name: 🚀 Deploy surveillance dashboard to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
-        with:
-          artifact_name: surveillance-dashboard
-      
-      - name: 📢 Announce deployment
-        run: |
-          echo "🎉 SURVEILLANCE DASHBOARD DEPLOYED!"
-          echo "🌐 Public URL: ${{ steps.deployment.outputs.page_url }}"
-          echo "🕵️ Mission: 2028 Olympics surveillance contract transparency"
-          echo "📊 Real-time monitoring of government procurement"
-          echo ""
-          echo "🔗 Dashboard: ${{ steps.deployment.outputs.page_url }}"
-          echo "📊 Data API: ${{ steps.deployment.outputs.page_url }}data/rfps.json"
-          echo "🏛️ Site Configs: ${{ steps.deployment.outputs.page_url }}data/sites.json"
-          
-          # Add to job summary
-          echo "## 🎉 Surveillance Dashboard Successfully Deployed!" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**🌐 Public URL:** [${{ steps.deployment.outputs.page_url }}](${{ steps.deployment.outputs.page_url }})" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "The public can now access real-time surveillance contract monitoring for the 2028 Olympics." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🔗 Quick Access" >> $GITHUB_STEP_SUMMARY
-          echo "- **🎯 Dashboard:** [${{ steps.deployment.outputs.page_url }}](${{ steps.deployment.outputs.page_url }})" >> $GITHUB_STEP_SUMMARY
-          echo "- **📊 RFP Data API:** [${{ steps.deployment.outputs.page_url }}data/rfps.json](${{ steps.deployment.outputs.page_url }}data/rfps.json)" >> $GITHUB_STEP_SUMMARY
-          echo "- **🏛️ Sites API:** [${{ steps.deployment.outputs.page_url }}data/sites.json](${{ steps.deployment.outputs.page_url }}data/sites.json)" >> $GITHUB_STEP_SUMMARY
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
+
+    - name: Create deployment summary
+      run: |
+        echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **Status**: ✅ Successfully deployed to GitHub Pages" >> $GITHUB_STEP_SUMMARY
+        echo "- **URL**: ${{ steps.deployment.outputs.page_url }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Triggered by**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Deploy time**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "The LA 2028 RFP Monitor is now live and accessible to the public." >> $GITHUB_STEP_SUMMARY
+
+  # Optional: Create deployment notification
+  notify:
+    needs: [build, deploy]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: Deployment notification
+      run: |
+        if [ "${{ needs.deploy.result }}" = "success" ]; then
+          echo "🎉 LA 2028 RFP Monitor successfully deployed!"
+          echo "🌐 Public URL: ${{ needs.deploy.outputs.page_url || 'https://nd-aad.github.io/Gov_Oversight/' }}"
+          echo "📊 Government RFP transparency tool is now live"
+        else
+          echo "❌ Deployment failed"
+          echo "🔍 Check workflow logs for details"
+        fi

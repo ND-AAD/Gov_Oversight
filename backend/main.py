@@ -2,12 +2,13 @@
 Main entry point for the LA 2028 RFP Monitor backend.
 
 Command-line interface for scraping, testing, and managing RFP data.
+Enhanced Phase 3 version with monitoring, archiving, and change detection.
 """
 
 import asyncio
 import logging
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 import click
 import json
@@ -18,6 +19,9 @@ sys.path.insert(0, str(Path(__file__).parent))
 from models import DataManager, SiteConfig, FieldMapping, DataType, FieldMappingStatus
 from scrapers import LocationBinder, RFPScraper
 from models.validation import validate_site_config_data
+from utils.change_detector import ChangeDetector, ChangeSeverity
+from utils.data_archiver import DataArchiver
+from utils.site_monitor import SiteMonitor
 
 # Configure logging
 logging.basicConfig(
@@ -43,42 +47,121 @@ def cli(ctx, data_dir):
 
 @cli.command()
 @click.option('--force', is_flag=True, help='Force full scan regardless of last update')
-@click.option('--site-id', help='Scrape specific site only')
+@click.option('--sites', help='Comma-separated site IDs to scrape (leave empty for all)')
+@click.option('--output-dir', help='Output directory for data files')
+@click.option('--detect-changes', is_flag=True, help='Enable change detection and alerts')
+@click.option('--create-archive', is_flag=True, help='Create archive after scraping')
 @click.pass_context
-def scrape(ctx, force, site_id):
-    """Scrape configured sites for new RFPs."""
+def scrape(ctx, force, sites, output_dir, detect_changes, create_archive):
+    """Scrape configured sites for new RFPs with enhanced Phase 3 features."""
     logger.info("Starting RFP scraping process")
     
     data_manager = ctx.obj['data_manager']
+    if output_dir:
+        data_manager = DataManager(output_dir)
     
     async def run_scraping():
         scraper = RFPScraper(data_manager)
+        change_detector = ChangeDetector(data_manager)
+        archiver = DataArchiver(data_manager)
         
-        if site_id:
-            # Scrape specific site
+        # Load previous RFPs for change detection
+        previous_rfps = None
+        if detect_changes:
+            previous_rfps = data_manager.load_rfps(validate=False)
+            click.echo(f"Loaded {len(previous_rfps)} existing RFPs for change detection")
+        
+        if sites:
+            # Scrape specific sites
+            site_ids = [s.strip() for s in sites.split(',')]
             site_configs = data_manager.load_site_configs()
-            site_config = next((s for s in site_configs if s.id == site_id), None)
+            target_configs = [s for s in site_configs if s.id in site_ids]
             
-            if not site_config:
-                click.echo(f"Site with ID '{site_id}' not found", err=True)
+            if not target_configs:
+                click.echo(f"No sites found matching IDs: {sites}", err=True)
                 return
             
-            result = await scraper.scrape_site(site_config, force)
-            click.echo(f"Scraped {site_config.name}: {len(result['new_rfps'])} new RFPs")
+            all_results = {'new_rfps': [], 'updated_rfps': [], 'sites_processed': 0, 'sites_failed': 0, 'errors': []}
+            
+            for site_config in target_configs:
+                try:
+                    result = await scraper.scrape_site(site_config, force)
+                    all_results['new_rfps'].extend(result.get('new_rfps', []))
+                    all_results['updated_rfps'].extend(result.get('updated_rfps', []))
+                    all_results['sites_processed'] += 1
+                    click.echo(f"Scraped {site_config.name}: {len(result.get('new_rfps', []))} new RFPs")
+                except Exception as e:
+                    all_results['sites_failed'] += 1
+                    all_results['errors'].append(f"{site_config.name}: {str(e)}")
+                    logger.error(f"Failed to scrape {site_config.name}: {e}")
+            
+            results = all_results
         else:
             # Scrape all sites
             results = await scraper.scrape_all_sites(force)
+        
+        # Get current RFPs after scraping
+        current_rfps = data_manager.load_rfps(validate=False)
+        
+        # Change detection
+        changes = []
+        if detect_changes and previous_rfps is not None:
+            click.echo("🔍 Detecting changes...")
+            changes = change_detector.detect_changes(current_rfps, previous_rfps)
             
-            click.echo(f"Scraping completed:")
-            click.echo(f"  Sites processed: {results['sites_processed']}")
-            click.echo(f"  Sites failed: {results['sites_failed']}")
-            click.echo(f"  New RFPs: {len(results['new_rfps'])}")
-            click.echo(f"  Updated RFPs: {len(results['updated_rfps'])}")
+            # Save snapshot for next comparison
+            change_detector.create_snapshot(current_rfps)
+            change_detector.save_changes(changes)
             
-            if results['errors']:
-                click.echo(f"  Errors: {len(results['errors'])}")
-                for error in results['errors'][:5]:  # Show first 5 errors
-                    click.echo(f"    - {error}")
+            if changes:
+                click.echo(f"📊 Detected {len(changes)} changes:")
+                
+                # Show critical and high priority changes
+                critical_changes = [c for c in changes if c.severity == ChangeSeverity.CRITICAL]
+                high_changes = [c for c in changes if c.severity == ChangeSeverity.HIGH]
+                
+                if critical_changes:
+                    click.echo(f"  🚨 Critical: {len(critical_changes)}")
+                    for change in critical_changes[:3]:  # Show first 3
+                        click.echo(f"    - {change.description}")
+                
+                if high_changes:
+                    click.echo(f"  ⚠️  High Priority: {len(high_changes)}")
+                    for change in high_changes[:3]:  # Show first 3
+                        click.echo(f"    - {change.description}")
+            else:
+                click.echo("✅ No significant changes detected")
+        
+        # Create archive
+        if create_archive:
+            click.echo("📦 Creating archive...")
+            archive_id = archiver.create_daily_archive(current_rfps)
+            
+            # Also create surveillance-focused archive if relevant RFPs found
+            surveillance_archive_id = archiver.create_surveillance_archive(current_rfps)
+            
+            if surveillance_archive_id:
+                click.echo(f"📊 Archives created: {archive_id}, {surveillance_archive_id}")
+            else:
+                click.echo(f"📊 Archive created: {archive_id}")
+        
+        # Show results
+        click.echo(f"\n🎯 Scraping completed:")
+        click.echo(f"  Sites processed: {results['sites_processed']}")
+        click.echo(f"  Sites failed: {results['sites_failed']}")
+        click.echo(f"  New RFPs: {len(results['new_rfps'])}")
+        click.echo(f"  Updated RFPs: {len(results['updated_rfps'])}")
+        
+        if detect_changes:
+            click.echo(f"  Changes detected: {len(changes)}")
+            action_required = len([c for c in changes if c.action_required])
+            if action_required > 0:
+                click.echo(f"  🚨 Action required: {action_required} changes need attention")
+        
+        if results['errors']:
+            click.echo(f"  Errors: {len(results['errors'])}")
+            for error in results['errors'][:5]:  # Show first 5 errors
+                click.echo(f"    - {error}")
     
     try:
         asyncio.run(run_scraping())
@@ -328,6 +411,245 @@ def backup(ctx, backup_dir):
         
     except Exception as e:
         click.echo(f"Error creating backup: {e}", err=True)
+
+
+@cli.command()
+@click.pass_context
+def monitor(ctx):
+    """Monitor all configured sites for health and availability."""
+    data_manager = ctx.obj['data_manager']
+    
+    async def run_monitoring():
+        monitor = SiteMonitor(data_manager)
+        
+        click.echo("🔍 Monitoring all configured sites...")
+        reports = await monitor.monitor_all_sites()
+        
+        if not reports:
+            click.echo("No sites to monitor")
+            return
+        
+        # Show summary
+        healthy = len([r for r in reports if r.overall_status.value == 'healthy'])
+        warning = len([r for r in reports if r.overall_status.value == 'warning'])
+        error = len([r for r in reports if r.overall_status.value in ['error', 'critical']])
+        
+        click.echo(f"\n📊 Monitoring Results:")
+        click.echo(f"  Total sites: {len(reports)}")
+        click.echo(f"  🟢 Healthy: {healthy}")
+        click.echo(f"  🟡 Warning: {warning}")
+        click.echo(f"  🔴 Error/Critical: {error}")
+        
+        # Show detailed results for problematic sites
+        problem_sites = [r for r in reports if r.overall_status.value in ['warning', 'error', 'critical']]
+        
+        if problem_sites:
+            click.echo(f"\n⚠️  Sites requiring attention:")
+            for report in problem_sites:
+                click.echo(f"  {report.site_name} ({report.overall_status.value})")
+                for check in report.checks:
+                    if check.status.value in ['warning', 'error', 'critical']:
+                        click.echo(f"    - {check.check_type.value}: {check.message}")
+                
+                if report.recommendations:
+                    click.echo(f"    Recommendations:")
+                    for rec in report.recommendations[:2]:  # Show first 2
+                        click.echo(f"      • {rec}")
+                click.echo()
+        
+        # Show critical issues
+        critical_issues = monitor.get_critical_issues()
+        if critical_issues:
+            click.echo(f"🚨 {len(critical_issues)} critical issues require immediate attention:")
+            for issue in critical_issues:
+                click.echo(f"  - {issue.site_name}: {issue.message}")
+    
+    try:
+        asyncio.run(run_monitoring())
+    except Exception as e:
+        click.echo(f"Monitoring failed: {e}", err=True)
+
+
+@cli.command()
+@click.option('--surveillance-only', is_flag=True, help='Create surveillance-focused archive only')
+@click.option('--tags', help='Comma-separated tags for the archive')
+@click.pass_context
+def archive(ctx, surveillance_only, tags):
+    """Create archive of current RFP data."""
+    data_manager = ctx.obj['data_manager']
+    
+    try:
+        archiver = DataArchiver(data_manager)
+        rfps = data_manager.load_rfps(validate=False)
+        
+        if not rfps:
+            click.echo("No RFPs found to archive")
+            return
+        
+        tag_list = [t.strip() for t in tags.split(',')] if tags else None
+        
+        if surveillance_only:
+            archive_id = archiver.create_surveillance_archive(rfps)
+            if archive_id:
+                click.echo(f"✅ Surveillance archive created: {archive_id}")
+            else:
+                click.echo("No surveillance-related RFPs found")
+        else:
+            archive_id = archiver.create_daily_archive(rfps, tag_list)
+            click.echo(f"✅ Archive created: {archive_id}")
+            
+            # Also create surveillance archive if relevant RFPs exist
+            surveillance_id = archiver.create_surveillance_archive(rfps)
+            if surveillance_id:
+                click.echo(f"✅ Additional surveillance archive: {surveillance_id}")
+        
+    except Exception as e:
+        click.echo(f"Error creating archive: {e}", err=True)
+
+
+@cli.command()
+@click.option('--days', type=int, default=7, help='Number of days to look back for changes')
+@click.option('--severity', type=click.Choice(['low', 'medium', 'high', 'critical']), 
+              help='Filter by severity level')
+@click.option('--action-required', is_flag=True, help='Show only changes requiring action')
+@click.pass_context  
+def changes(ctx, days, severity, action_required):
+    """Show recent changes in RFP data."""
+    data_manager = ctx.obj['data_manager']
+    
+    try:
+        change_detector = ChangeDetector(data_manager)
+        
+        if severity:
+            from utils.change_detector import ChangeSeverity
+            severity_enum = ChangeSeverity(severity)
+            changes = change_detector.get_changes_by_severity(severity_enum, days)
+        elif action_required:
+            changes = change_detector.get_action_required_changes(days)
+        else:
+            all_changes = change_detector.load_changes()
+            cutoff_date = datetime.now() - timedelta(days=days)
+            changes = [c for c in all_changes if c.detected_at >= cutoff_date]
+        
+        if not changes:
+            click.echo(f"No changes found in the last {days} days")
+            return
+        
+        click.echo(f"📊 Found {len(changes)} changes in the last {days} days:\n")
+        
+        # Group by severity
+        by_severity = {}
+        for change in changes:
+            severity_key = change.severity.value
+            if severity_key not in by_severity:
+                by_severity[severity_key] = []
+            by_severity[severity_key].append(change)
+        
+        # Show in severity order
+        severity_order = ['critical', 'high', 'medium', 'low']
+        for sev in severity_order:
+            if sev in by_severity:
+                sev_changes = by_severity[sev]
+                emoji = {'critical': '🚨', 'high': '⚠️', 'medium': '📊', 'low': '📝'}[sev]
+                click.echo(f"{emoji} {sev.upper()} ({len(sev_changes)} changes):")
+                
+                for change in sev_changes[:5]:  # Show first 5 per severity
+                    action_flag = " [ACTION REQUIRED]" if change.action_required else ""
+                    click.echo(f"  • {change.rfp_title}{action_flag}")
+                    click.echo(f"    {change.description}")
+                    click.echo(f"    Detected: {change.detected_at.strftime('%Y-%m-%d %H:%M')}")
+                    click.echo()
+        
+        # Show summary
+        summary = change_detector.generate_change_summary(days)
+        action_count = summary.get('action_required', 0)
+        if action_count > 0:
+            click.echo(f"🚨 {action_count} changes require activist attention")
+        
+    except Exception as e:
+        click.echo(f"Error getting changes: {e}", err=True)
+
+
+@cli.command()
+@click.option('--tags', help='Filter archives by tags (comma-separated)')
+@click.option('--days', type=int, help='Only show archives from last N days')
+@click.pass_context
+def list_archives(ctx, tags, days):
+    """List available data archives."""
+    data_manager = ctx.obj['data_manager']
+    
+    try:
+        archiver = DataArchiver(data_manager)
+        
+        tag_list = [t.strip() for t in tags.split(',')] if tags else None
+        archives = archiver.list_archives(tag_list, days)
+        
+        if not archives:
+            click.echo("No archives found")
+            return
+        
+        click.echo(f"📦 Found {len(archives)} archives:\n")
+        
+        for archive in archives:
+            # Age calculation
+            age = datetime.now() - archive.created_at
+            age_str = f"{age.days}d {age.seconds//3600}h ago"
+            
+            click.echo(f"📊 {archive.archive_id}")
+            click.echo(f"   Created: {archive.created_at.strftime('%Y-%m-%d %H:%M')} ({age_str})")
+            click.echo(f"   RFPs: {archive.rfp_count}")
+            click.echo(f"   Description: {archive.description}")
+            click.echo(f"   Tags: {', '.join(archive.tags)}")
+            click.echo(f"   Compression: {archive.compression_ratio:.1%}")
+            click.echo()
+        
+    except Exception as e:
+        click.echo(f"Error listing archives: {e}", err=True)
+
+
+@cli.command()
+@click.argument('start_date', type=click.DateTime(formats=['%Y-%m-%d']))
+@click.argument('end_date', type=click.DateTime(formats=['%Y-%m-%d']))
+@click.option('--surveillance-only', is_flag=True, help='Export only surveillance-related RFPs')
+@click.option('--output', help='Output file for research data (default: research_export.json)')
+@click.pass_context
+def export_research(ctx, start_date, end_date, surveillance_only, output):
+    """Export RFP data for activist research over a date range."""
+    data_manager = ctx.obj['data_manager']
+    
+    try:
+        archiver = DataArchiver(data_manager)
+        
+        output_file = output or f"research_export_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.json"
+        
+        click.echo(f"📊 Exporting research data from {start_date.date()} to {end_date.date()}")
+        if surveillance_only:
+            click.echo("🔍 Filtering for surveillance-related RFPs only")
+        
+        research_data = archiver.export_research_data(start_date, end_date, surveillance_only)
+        
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(research_data, f, indent=2, ensure_ascii=False)
+        
+        # Show summary
+        metadata = research_data['export_metadata']
+        analysis = research_data['analysis']
+        
+        click.echo(f"\n✅ Research export complete:")
+        click.echo(f"  File: {output_file}")
+        click.echo(f"  RFPs included: {metadata['total_rfps']}")
+        click.echo(f"  Archives processed: {metadata['archives_included']}")
+        
+        if 'surveillance_analysis' in analysis:
+            surv_analysis = analysis['surveillance_analysis']
+            click.echo(f"  Surveillance RFPs: {surv_analysis['total_surveillance_rfps']}")
+            if surv_analysis['total_surveillance_value'] > 0:
+                click.echo(f"  Total surveillance value: ${surv_analysis['total_surveillance_value']:,.0f}")
+        
+        click.echo(f"\n📋 Research notes and methodology included in export")
+        
+    except Exception as e:
+        click.echo(f"Error exporting research data: {e}", err=True)
 
 
 if __name__ == '__main__':
