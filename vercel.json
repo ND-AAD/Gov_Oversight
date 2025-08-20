@@ -1,0 +1,12 @@
+{
+  "functions": {
+    "api/add-site.js": {
+      "runtime": "@vercel/node"
+    }
+  },
+  "env": {
+    "GITHUB_TOKEN": "@github_token",
+    "GITHUB_OWNER": "ND-AAD",
+    "GITHUB_REPO": "Gov_Oversight"
+  }
+}

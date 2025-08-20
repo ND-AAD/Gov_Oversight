@@ -432,42 +432,47 @@ const createSiteViaGitHub = async (siteData: CreateSiteRequest): Promise<SiteCon
   }
 };
 
-// Create GitHub issue for site addition
+// Create GitHub issue for site addition via serverless function
 const createSiteAdditionIssue = async (siteData: CreateSiteRequest): Promise<void> => {
   
-  // Create issue body from site data
-  const issueBody = `**Site Addition Request**
+  // Call serverless function to create GitHub issue
+  try {
+    const SERVERLESS_ENDPOINT = import.meta.env.VITE_SERVERLESS_ENDPOINT || '/api/add-site';
+    
+    const response = await axios.post(SERVERLESS_ENDPOINT, siteData, {
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      timeout: 30000
+    });
+    
+    if (response.status !== 201) {
+      throw new Error(`Serverless function returned status ${response.status}`);
+    }
+    
+    console.log('Site addition request submitted via serverless function:', response.data);
+    
+  } catch (error) {
+    console.error('Serverless function failed, falling back to localStorage:', error);
+    
+    // Fallback to localStorage if serverless function fails
+    const issueData = {
+      title: `Add Site: ${siteData.name}`,
+      body: `Site addition request for ${siteData.name} (${siteData.base_url})`,
+      labels: ['site-addition', 'automation'],
+      site_data: siteData
+    };
 
-Site Name: ${siteData.name}
-Base URL: ${siteData.base_url}
-RFP Page URL: ${siteData.main_rfp_page_url || siteData.base_url}
-Sample RFP URL: ${siteData.sample_rfp_url || siteData.main_rfp_page_url || siteData.base_url}
-Description: ${siteData.description || 'No description provided'}
-
-**Field Mappings:**
-${siteData.field_mappings?.map(fm => `- ${fm.alias}: "${fm.sample_value}" (${fm.data_type})`).join('\n') || 'No custom field mappings'}
-
-**Submitted:** ${new Date().toISOString()}
-
----
-*This request was submitted via the RFP Monitor dashboard and will be processed automatically.*`;
-
-  const issueData = {
-    title: `Add Site: ${siteData.name}`,
-    body: issueBody,
-    labels: ['site-addition', 'automation']
-  };
-
-  // Store the request locally for immediate UX feedback
-  const issueRequests = JSON.parse(localStorage.getItem('github_issue_requests') || '[]');
-  issueRequests.push({
-    ...issueData,
-    timestamp: new Date().toISOString(),
-    status: 'pending'
-  });
-  localStorage.setItem('github_issue_requests', JSON.stringify(issueRequests));
-  
-  console.log('Site addition request created:', issueData);
+    const issueRequests = JSON.parse(localStorage.getItem('github_issue_requests') || '[]');
+    issueRequests.push({
+      ...issueData,
+      timestamp: new Date().toISOString(),
+      status: 'pending'
+    });
+    localStorage.setItem('github_issue_requests', JSON.stringify(issueRequests));
+    
+    console.log('Site addition request stored locally for manual processing');
+  }
 };
 
 // Clean up ignored RFPs from deleted sites
