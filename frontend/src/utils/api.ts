@@ -256,8 +256,6 @@ export const loadStaticSites = async (): Promise<SiteConfig[]> => {
 
 // GitHub API integration for static mode site management
 const createSiteViaGitHub = async (siteData: CreateSiteRequest): Promise<SiteConfig> => {
-  const repoOwner = 'ND-AAD'; // Replace with actual repo owner
-  const repoName = 'Gov_Oversight'; // Replace with actual repo name
   
   try {
     // Create GitHub issue for site addition request
@@ -274,20 +272,24 @@ const createSiteViaGitHub = async (siteData: CreateSiteRequest): Promise<SiteCon
       field_mappings: siteData.field_mappings?.map(fm => ({
         alias: fm.alias,
         selector: '', // Will be populated by location binder
-        data_type: fm.data_type as any,
+        data_type: fm.data_type as 'text' | 'date' | 'currency' | 'number' | 'url' | 'email',
         training_value: fm.sample_value,
         confidence_score: 0.0,
-        status: 'untested' as any,
+        fallback_selectors: [],
+        validation_errors: [],
+        status: 'untested' as 'working' | 'degraded' | 'broken' | 'untested',
         consecutive_failures: 0
       })) || [],
-      last_tested: new Date().toISOString(),
-      status: 'pending' as any, // Mark as pending
+      last_test: new Date().toISOString(),
+      status: 'testing' as 'active' | 'error' | 'testing' | 'disabled', // Mark as testing
+      rfp_count: 0,
+      robots_txt_compliant: true,
       test_results: {
-        success: false,
+        is_valid: false,
         errors: [],
         warnings: ['Site request submitted - processing within 1 hour'],
-        tested_at: new Date().toISOString()
-      } as any
+        timestamp: new Date().toISOString()
+      }
     };
     
     // Store pending site for immediate UX feedback
@@ -318,8 +320,6 @@ const createSiteViaGitHub = async (siteData: CreateSiteRequest): Promise<SiteCon
 
 // Create GitHub issue for site addition
 const createSiteAdditionIssue = async (siteData: CreateSiteRequest): Promise<void> => {
-  const repoOwner = 'ND-AAD'; // Replace with actual repo owner  
-  const repoName = 'Gov_Oversight'; // Replace with actual repo name
   
   // Create issue body from site data
   const issueBody = `
