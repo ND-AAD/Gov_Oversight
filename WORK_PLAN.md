@@ -262,30 +262,30 @@ class LocationBinder:
 
 ---
 
-## Current Status: GitHub Integration Complete - Ready for Production
+## Current Status: Core Features Working - Backend Integration Needs Resolution
 
-**PHASE 3 GITHUB INTEGRATION & DEPLOYMENT - ✅ COMPLETE** ✅
-
-### Issues Resolved:
-1. **✅ GitHub-Native Architecture**: Fully integrated GitHub Actions workflow for site processing
-2. **✅ Transparent UX**: Honest status messages with clear expectations about processing time
-3. **✅ Automated Workflows**: Robust GitHub Actions for scraping, site processing, and deployment
-4. **✅ Static Mode Functionality**: Full site addition capability via GitHub Issues integration
+**PHASE 3 GITHUB INTEGRATION & DEPLOYMENT - ⚠️ PARTIAL** ⚠️
 
 ### What's Working ✅:
 - **✅ Frontend Data Loading**: GitHub Pages site loads data correctly with API fallback
 - **✅ Deploy Workflow**: Frontend builds and deploys to GitHub Pages successfully  
 - **✅ Complete Scraping Workflow**: Python dependencies, Playwright, and data processing working
-- **✅ Professional UI**: Dashboard displays RFP data with proper styling
-- **✅ Site Addition Workflow**: Users can add sites via dashboard → GitHub Issues → automated processing
-- **✅ Issue Templates**: Structured forms for site addition requests
-- **✅ Automated Processing**: GitHub Actions process pending sites every hour
-- **✅ Data Persistence**: All changes committed to repository with full audit trail
+- **✅ Professional UI**: Dashboard displays RFP data with proper styling and responsive design
+- **✅ Ignore/Star Persistence**: RFP ignore and star states persist across browser reloads
+- **✅ Soft Delete System**: Sites can be removed from UI immediately with GitHub processing for audit trail
+- **✅ Processing Status**: Real-time GitHub Actions status displayed in dashboard header
+- **✅ Clean Data State**: All test data removed for production readiness
 
-### Architecture Implemented:
-```
-Frontend UI → GitHub Issues → GitHub Actions → sites.json → Scraping → rfps.json → Deployment
-```
+### Current Issues ⚠️:
+- **⚠️ Add Site Backend**: Frontend stores requests in localStorage but they don't reach GitHub Actions
+- **⚠️ Site Processing**: GitHub Actions runs but doesn't process pending site additions
+- **⚠️ Data Synchronization**: No bridge between frontend localStorage and GitHub data files
+
+### Recent Changes ✅:
+- **✅ UX Rollback**: Reverted Add Site flow to original popup approach per user feedback
+- **✅ Improved Ignore UX**: Less prominent ignore messages, better user experience
+- **✅ Test Data Cleanup**: Removed all sample/test data for clean production environment
+- **✅ Smart Soft Delete**: Sites removed from UI immediately with GitHub issue for backend processing
 
 ---
 
@@ -355,24 +355,25 @@ Frontend UI (Unchanged) → localStorage Queue → GitHub Actions
 
 ---
 
-## Phase 4: GitHub-Native Implementation & Testing (Current Focus) 📋
+## Phase 4: Backend Integration Resolution (Current Priority) ⚠️
 
-### 4.1 Implement GitHub-Native Site Management
-**Status**: 📋 **NEXT PRIORITY**
-- [ ] Create GitHub issue templates for site requests
-- [ ] Build GitHub Actions workflow to process site configuration issues
-- [ ] Add automated site validation and testing
-- [ ] Create PR-based review process for new sites
+### 4.1 Critical: Fix Add Site Backend Integration ⚠️
+**Status**: ⚠️ **URGENT** - Core functionality broken
+- [x] ✅ **UX Rollback**: Reverted to original popup approach per user feedback
+- [ ] **Backend Bridge**: Create mechanism to transfer localStorage requests to GitHub Actions
+- [ ] **Site Processing**: Fix GitHub Actions to actually process pending site additions  
+- [ ] **Data Synchronization**: Ensure frontend and backend data consistency
+- [ ] **End-to-End Testing**: Verify complete Add Site → Processing → Scraping workflow
 
-### 4.2 Real Site Integration
-**Status**: 📋 **AFTER ARCHITECTURE FIX**
+### 4.2 Real Site Integration ⏳
+**Status**: ⏳ **BLOCKED** - Dependent on 4.1 completion
 - [ ] Test with LA County procurement site
 - [ ] Test with City of LA contracts  
 - [ ] Validate field extraction accuracy
 - [ ] Stress test error handling
 
-### 4.3 Community Features
-**Status**: 📋 **GITHUB-NATIVE APPROACH**
+### 4.3 Community Features 📋
+**Status**: 📋 **FUTURE** - After core functionality working
 - [ ] Site configuration sharing via GitHub
 - [ ] Multi-user field validation via PR reviews
 - [ ] Community error reporting via issues
@@ -380,21 +381,24 @@ Frontend UI (Unchanged) → localStorage Queue → GitHub Actions
 
 ---
 
-## Current Focus: Fixing GitHub Integration
+## Current Focus: Backend Integration Crisis Resolution
 
-**COMPLETED TASKS**:
-1. **✅ Update Work Plan** (This document) - ✅ COMPLETE
-2. **✅ Preserve Excellent UX** - Keep current Add Site interface - ✅ COMPLETE
-3. **✅ Smart API Mode Detection** - Frontend auto-detects static vs dev mode - ✅ COMPLETE
-4. **✅ Queue-Based Site Addition** - GitHub Issues with immediate feedback - ✅ COMPLETE
-5. **✅ GitHub Actions Site Processor** - Process pending sites from GitHub Issues - ✅ COMPLETE
-6. **✅ Data File Committer** - Automated commits to sites.json via GitHub Actions - ✅ COMPLETE
-7. **✅ Issue Templates** - Structured site addition request forms - ✅ COMPLETE
-8. **✅ Complete Documentation** - GitHub workflow guide for handoff - ✅ COMPLETE
+**CRITICAL ISSUE**: Add Site functionality appears to work in UI but doesn't actually persist to backend.
 
-**READY FOR PRODUCTION**: The excellent UX is preserved while the backend is fully GitHub-native for transparency and reliability.
+**ROOT CAUSE**: Frontend stores site requests in localStorage, but there's no mechanism to transfer them to GitHub Actions for processing.
 
-**Next Step**: Add real government sites for Olympic surveillance monitoring.
+**RESOLUTION OPTIONS**:
+1. **Server-Side Bridge**: Deploy serverless function to accept frontend requests and create GitHub issues
+2. **Manual GitHub Flow**: Guide users to manually create GitHub issues (rejected for UX reasons)
+3. **Alternative Architecture**: Explore different approaches to frontend-backend communication
+
+**IMMEDIATE TASKS**:
+1. **⚠️ Diagnose**: Confirm exactly why site processing isn't working
+2. **⚠️ Bridge**: Create mechanism to transfer localStorage to GitHub
+3. **⚠️ Test**: Verify end-to-end Add Site workflow
+4. **⚠️ Document**: Update architecture documentation
+
+**TARGET**: Get Add Site workflow fully functional for dozen government sites.
 
 ---
 
@@ -405,4 +409,4 @@ Frontend UI (Unchanged) → localStorage Queue → GitHub Actions
 - ⚠️ **Blocked**: Waiting on dependencies
 - ❌ **Cancelled**: No longer needed
 
-Last Updated: 2024-12-19 - Frontend UI Implementation Complete
+Last Updated: 2024-12-20 - Current Status: Backend Integration Crisis
