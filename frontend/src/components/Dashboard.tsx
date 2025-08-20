@@ -256,7 +256,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       localStorage.setItem('ignored_rfp_ids', JSON.stringify([...newSet]));
       return newSet;
     });
-    toast.success('RFP ignored (persisted across reloads)');
+    toast.success('RFP hidden from main view (view ignored RFPs via "View Ignored" button)');
   };
 
   const handleToggleStar = (id: string) => {
@@ -330,8 +330,8 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       
       // Show success message with next steps
       toast.success(
-        `Site "${newSite.name}" request submitted! It will be processed automatically within 1 hour and appear in the next scraping run.`,
-        { duration: 6000 }
+        `Site "${newSite.name}" request opened in new tab! Click "Submit new issue" to complete the addition. It will be processed automatically within 1 hour.`,
+        { duration: 8000 }
       );
 
       // Reload sites to show the pending site

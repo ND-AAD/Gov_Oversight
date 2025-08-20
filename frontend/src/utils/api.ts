@@ -122,6 +122,9 @@ export const getSites = async (): Promise<SiteConfig[]> => {
       const deletedSites = JSON.parse(localStorage.getItem('soft_deleted_sites') || '[]');
       const deletedIds = new Set(deletedSites.map((site: any) => site.id));
       sites = sites.filter(site => !deletedIds.has(site.id));
+      
+      // Clean up ignored RFPs from deleted sites
+      cleanupIgnoredRFPsFromDeletedSites(deletedIds);
     }
     
     return sites;
@@ -433,13 +436,12 @@ const createSiteViaGitHub = async (siteData: CreateSiteRequest): Promise<SiteCon
 const createSiteAdditionIssue = async (siteData: CreateSiteRequest): Promise<void> => {
   
   // Create issue body from site data
-  const issueBody = `
-**Site Addition Request**
+  const issueBody = `**Site Addition Request**
 
 Site Name: ${siteData.name}
 Base URL: ${siteData.base_url}
-RFP Page URL: ${siteData.main_rfp_page_url}
-Sample RFP URL: ${siteData.sample_rfp_url}
+RFP Page URL: ${siteData.main_rfp_page_url || siteData.base_url}
+Sample RFP URL: ${siteData.sample_rfp_url || siteData.main_rfp_page_url || siteData.base_url}
 Description: ${siteData.description || 'No description provided'}
 
 **Field Mappings:**
@@ -448,32 +450,46 @@ ${siteData.field_mappings?.map(fm => `- ${fm.alias}: "${fm.sample_value}" (${fm.
 **Submitted:** ${new Date().toISOString()}
 
 ---
-*This request was submitted via the RFP Monitor dashboard and will be processed automatically.*
-`.trim();
+*This request was submitted via the RFP Monitor dashboard and will be processed automatically.*`;
 
-  const issueData = {
-    title: `Add Site: ${siteData.name}`,
-    body: issueBody,
-    labels: ['site-addition', 'automation']
-  };
+  // Create the GitHub issue URL with pre-filled data
+  const issueTitle = encodeURIComponent(`Add Site: ${siteData.name}`);
+  const issueBodyEncoded = encodeURIComponent(issueBody);
+  const labels = encodeURIComponent('site-addition');
+  
+  const githubIssueUrl = `https://github.com/ND-AAD/Gov_Oversight/issues/new?title=${issueTitle}&body=${issueBodyEncoded}&labels=${labels}`;
+  
+  // Open the GitHub issue creation page in a new tab
+  window.open(githubIssueUrl, '_blank');
+  
+  console.log('Site addition GitHub issue opened:', githubIssueUrl);
+};
 
-  // For static mode, we can't create GitHub issues directly from the browser
-  // due to CORS restrictions. Instead, we'll create a formatted request
-  // that users can manually submit if needed.
-  
-  console.log('Site addition request formatted:', issueData);
-  
-  // In a real implementation, this would need to go through a serverless function
-  // or GitHub Action that can create issues with proper authentication
-  
-  // For now, we'll store the request locally and let the user know it's been "submitted"
-  const issueRequests = JSON.parse(localStorage.getItem('github_issue_requests') || '[]');
-  issueRequests.push({
-    ...issueData,
-    timestamp: new Date().toISOString(),
-    status: 'pending'
-  });
-  localStorage.setItem('github_issue_requests', JSON.stringify(issueRequests));
+// Clean up ignored RFPs from deleted sites
+const cleanupIgnoredRFPsFromDeletedSites = async (deletedSiteIds: Set<string>): Promise<void> => {
+  try {
+    // Load current RFPs to check their source sites
+    const rfps = await loadStaticRFPs();
+    const ignoredRFPIds = JSON.parse(localStorage.getItem('ignored_rfp_ids') || '[]');
+    
+    // Find RFPs that belong to deleted sites
+    const rfpsFromDeletedSites = rfps
+      .filter(rfp => deletedSiteIds.has(rfp.source_site))
+      .map(rfp => rfp.id);
+    
+    // Remove ignored RFPs from deleted sites
+    const cleanedIgnoredRFPs = ignoredRFPIds.filter((rfpId: string) => 
+      !rfpsFromDeletedSites.includes(rfpId)
+    );
+    
+    // Update localStorage if any cleanup was needed
+    if (cleanedIgnoredRFPs.length !== ignoredRFPIds.length) {
+      localStorage.setItem('ignored_rfp_ids', JSON.stringify(cleanedIgnoredRFPs));
+      console.log(`Cleaned up ${ignoredRFPIds.length - cleanedIgnoredRFPs.length} ignored RFPs from deleted sites`);
+    }
+  } catch (error) {
+    console.warn('Failed to cleanup ignored RFPs from deleted sites:', error);
+  }
 };
 
 // Auto-detect whether to use API or static files

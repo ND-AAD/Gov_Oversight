@@ -1,62 +1,8 @@
 {
   "metadata": {
-    "last_updated": "2024-12-16T15:30:00Z",
-    "total_sites": 3,
+    "last_updated": "2024-12-19T16:00:00Z",
+    "total_sites": 0,
     "version": "1.0"
   },
-  "sites": [
-    {
-      "id": "la_city",
-      "name": "LA City Portal",
-      "base_url": "https://losangeles.gov",
-      "main_rfp_page_url": "https://losangeles.gov/rfps",
-      "sample_rfp_url": "https://losangeles.gov/rfp/sample",
-      "field_mappings": [
-        {
-          "alias": "Status",
-          "selector": ".rfp-status",
-          "data_type": "text",
-          "training_value": "Active",
-          "confidence_score": 0.9,
-          "status": "working"
-        },
-        {
-          "alias": "Contract Value",
-          "selector": ".contract-value",
-          "data_type": "currency",
-          "training_value": "$15,000,000",
-          "confidence_score": 0.85,
-          "status": "working"
-        }
-      ],
-      "status": "active",
-      "last_scrape": "2024-12-16T10:00:00Z",
-      "rfp_count": 12,
-      "description": "LA City procurement opportunities portal"
-    },
-    {
-      "id": "ca_state",
-      "name": "CA State Contracts",
-      "base_url": "https://caleprocure.ca.gov",
-      "main_rfp_page_url": "https://caleprocure.ca.gov/rfps",
-      "sample_rfp_url": "https://caleprocure.ca.gov/rfp/sample",
-      "field_mappings": [],
-      "status": "active",
-      "last_scrape": "2024-12-16T09:30:00Z",
-      "rfp_count": 8,
-      "description": "California state procurement portal"
-    },
-    {
-      "id": "metro_la",
-      "name": "Metro LA Procurement",
-      "base_url": "https://metro.net",
-      "main_rfp_page_url": "https://metro.net/procurement",
-      "sample_rfp_url": "https://metro.net/procurement/sample",
-      "field_mappings": [],
-      "status": "error",
-      "last_scrape": "2024-12-16T08:45:00Z",
-      "rfp_count": 5,
-      "description": "Los Angeles Metro procurement opportunities"
-    }
-  ]
+  "sites": []
 }
