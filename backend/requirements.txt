@@ -5,6 +5,7 @@ playwright==1.40.0
 
 # Data processing and validation
 requests==2.31.0
+aiohttp==3.9.1
 beautifulsoup4==4.12.2
 lxml==4.9.3
 
@@ -17,6 +18,9 @@ python-dateutil==2.8.2
 
 # Logging and configuration
 structlog==23.2.0
+
+# Command line interface
+click==8.1.7
 
 # Testing
 pytest==7.4.3

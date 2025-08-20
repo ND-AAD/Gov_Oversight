@@ -45,7 +45,8 @@ jobs:
     - name: Install frontend dependencies
       run: |
         cd frontend
-        npm ci
+        # Try npm ci first, fallback to npm install if lockfile version incompatible
+        npm ci || npm install
 
     - name: Prepare data for static deployment
       run: |
