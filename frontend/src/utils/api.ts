@@ -191,9 +191,26 @@ export const deleteSite = async (siteId: string): Promise<void> => {
   const isStaticMode = window.location.hostname.includes('github.io');
   
   if (isStaticMode) {
-    // In static mode, we can't directly delete sites from the data files
-    // Instead, we'll create a GitHub issue for site removal
-    throw new Error('Site deletion in GitHub Pages mode requires creating a GitHub issue for manual processing. Please create an issue with the label "site-removal" and specify the site ID to remove.');
+    // In static mode, we'll remove from localStorage and direct user to GitHub
+    const pendingSites = localStorage.getItem('pending_site_additions');
+    if (pendingSites) {
+      try {
+        const sites = JSON.parse(pendingSites);
+        const filteredSites = sites.filter((site: any) => site.id !== siteId);
+        localStorage.setItem('pending_site_additions', JSON.stringify(filteredSites));
+      } catch (e) {
+        console.warn('Failed to update pending sites');
+      }
+    }
+    
+    // For permanent deletion of committed sites, direct to GitHub
+    window.open(
+      `https://github.com/ND-AAD/Gov_Oversight/issues/new?template=site-removal.yml&title=Remove+Site:+${siteId}`,
+      '_blank'
+    );
+    
+    // Don't throw an error, just inform the user
+    throw new Error('Site removal request opened in new tab. For temporary sites, it has been removed from your session.');
   } else {
     // Development mode - use API
     await api.delete(`/api/sites/${siteId}`);

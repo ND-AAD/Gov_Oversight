@@ -139,10 +139,11 @@ export function SiteManagement({ onNavigate }: SiteManagementProps) {
     try {
       await deleteSite(id);
       await loadSites();
-      toast.success(`Site "${name}" removed successfully`);
+      toast.success(`Site "${name}" removal process initiated`);
     } catch (error) {
-      console.error('Failed to delete site:', error);
-      toast.error('Failed to remove site');
+      console.error('Delete site process:', error);
+      // Show the actual error message which contains helpful instructions
+      toast.info(error instanceof Error ? error.message : 'Site removal process initiated');
     }
   };
 

@@ -12,9 +12,10 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Separator } from './ui/separator';
 
-import { Grid, List, Globe, Plus, ArrowUpDown, Settings, Trash2 } from 'lucide-react';
+import { Grid, List, Globe, Plus, ArrowUpDown, Settings, Trash2, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { autoLoadRFPs, createSite } from '../utils/api';
+import { checkGitHubActionsStatus, getProcessingStatusMessage } from '../utils/github-status';
 
 interface DashboardProps {
   onNavigate: (page: 'dashboard' | 'analytics' | 'settings' | 'ignored' | 'sites') => void;
@@ -42,8 +43,20 @@ interface NewSiteConfig {
 export function Dashboard({ onNavigate }: DashboardProps) {
   const [rfps, setRfps] = useState<RFP[]>([]);
   const [loading, setLoading] = useState(true);
-  const [ignoredRFPIds, setIgnoredRFPIds] = useState<Set<string>>(new Set());
-  const [starredRFPIds, setStarredRFPIds] = useState<Set<string>>(new Set());
+  const [processingStatus, setProcessingStatus] = useState<{
+    isProcessing: boolean;
+    message: string;
+  }>({ isProcessing: false, message: '' });
+  const [ignoredRFPIds, setIgnoredRFPIds] = useState<Set<string>>(() => {
+    // Load ignored RFPs from localStorage on startup
+    const saved = localStorage.getItem('ignored_rfp_ids');
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
+  const [starredRFPIds, setStarredRFPIds] = useState<Set<string>>(() => {
+    // Load starred RFPs from localStorage on startup
+    const saved = localStorage.getItem('starred_rfp_ids');
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
   const [selectedRFP, setSelectedRFP] = useState<RFP | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -77,7 +90,24 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   // Load RFPs from backend
   useEffect(() => {
     loadRFPs();
+    checkProcessingStatus();
+    
+    // Check processing status every 2 minutes
+    const interval = setInterval(checkProcessingStatus, 2 * 60 * 1000);
+    return () => clearInterval(interval);
   }, []);
+
+  const checkProcessingStatus = async () => {
+    try {
+      const status = await checkGitHubActionsStatus();
+      setProcessingStatus({
+        isProcessing: status.isProcessing,
+        message: getProcessingStatusMessage(status)
+      });
+    } catch (error) {
+      console.warn('Failed to check processing status:', error);
+    }
+  };
 
   const loadRFPs = async () => {
     try {
@@ -220,8 +250,13 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   };
 
   const handleIgnoreRFP = (id: string) => {
-    setIgnoredRFPIds(prev => new Set([...prev, id]));
-    toast.success('RFP ignored');
+    setIgnoredRFPIds(prev => {
+      const newSet = new Set([...prev, id]);
+      // Save to localStorage for persistence
+      localStorage.setItem('ignored_rfp_ids', JSON.stringify([...newSet]));
+      return newSet;
+    });
+    toast.success('RFP ignored (persisted across reloads)');
   };
 
   const handleToggleStar = (id: string) => {
@@ -234,6 +269,8 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         newSet.add(id);
         toast.success('RFP starred');
       }
+      // Save to localStorage for persistence
+      localStorage.setItem('starred_rfp_ids', JSON.stringify([...newSet]));
       return newSet;
     });
   };
@@ -366,9 +403,17 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold mb-2">LA 2028 RFP Monitor</h1>
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground mb-2">
                 Track government procurement opportunities for the 2028 LA Olympics
               </p>
+              {processingStatus.message && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Clock className={`h-4 w-4 ${processingStatus.isProcessing ? 'animate-spin text-blue-500' : 'text-muted-foreground'}`} />
+                  <span className={processingStatus.isProcessing ? 'text-blue-600 font-medium' : 'text-muted-foreground'}>
+                    {processingStatus.message}
+                  </span>
+                </div>
+              )}
             </div>
             
             <div className="flex items-center gap-3">
