@@ -8,7 +8,7 @@ from pathlib import Path
 def count_rfps():
     """Count the number of RFPs in the data file."""
     try:
-        data_file = Path('../data/rfps.json')
+        data_file = Path('data/rfps.json')
         if not data_file.exists():
             print("0")
             return

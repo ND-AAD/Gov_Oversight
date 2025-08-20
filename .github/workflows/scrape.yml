@@ -136,23 +136,36 @@ jobs:
           FORCE_FLAG="--force"
         fi
         
-        # Execute scraping with error handling
-        if python main.py scrape $TARGET_SITES_ARG $FORCE_FLAG --output-dir ../data; then
+        # Check if sites are configured
+        if [ ! -f "../data/sites.json" ] || [ ! -s "../data/sites.json" ]; then
+          echo "⚠️ No sites configured yet - this is normal for initial setup"
+          echo "Creating empty data files for deployment..."
+          mkdir -p ../data
+          echo "[]" > ../data/rfps.json
+          echo "[]" > ../data/sites.json
           echo "scrape_success=true" >> $GITHUB_OUTPUT
-          echo "✅ Scraping completed successfully"
-          
-          # Update last scrape timestamp
-          date -u +"%Y-%m-%dT%H:%M:%SZ" > ../data/last_scrape.txt
-          
-          # Count new/updated RFPs
-          NEW_RFPS_COUNT=$(python ../.github/scripts/count_rfps.py 2>/dev/null || echo "0")
-          echo "rfp_count=$NEW_RFPS_COUNT" >> $GITHUB_OUTPUT
-          
+          echo "✅ Initial setup completed (no sites to scrape yet)"
         else
-          echo "scrape_success=false" >> $GITHUB_OUTPUT
-          echo "❌ Scraping failed"
-          exit 1
+          # Execute scraping with error handling
+          echo "🕸️ Sites configured, attempting to scrape..."
+          if python main.py scrape $TARGET_SITES_ARG $FORCE_FLAG --output-dir ../data; then
+            echo "scrape_success=true" >> $GITHUB_OUTPUT
+            echo "✅ Scraping completed successfully"
+          else
+            echo "scrape_success=false" >> $GITHUB_OUTPUT
+            echo "❌ Scraping failed"
+            exit 1
+          fi
         fi
+        
+        # Update last scrape timestamp
+        date -u +"%Y-%m-%dT%H:%M:%SZ" > ../data/last_scrape.txt
+        
+        # Count new/updated RFPs
+        cd ..  # Go back to repo root
+        NEW_RFPS_COUNT=$(python .github/scripts/count_rfps.py 2>/dev/null || echo "0")
+        echo "rfp_count=$NEW_RFPS_COUNT" >> $GITHUB_OUTPUT
+        cd backend  # Return to backend directory
 
     - name: Archive historical data
       if: steps.scrape_check.outputs.should_scrape == 'true' && steps.scrape.outputs.scrape_success == 'true'
