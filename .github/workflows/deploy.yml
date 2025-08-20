@@ -138,53 +138,11 @@ EOF
       run: |
         cd frontend
         
-        # Set base URL for GitHub Pages deployment
-        REPO_NAME="${{ github.repository }}"
-        BASE_URL="/${REPO_NAME##*/}"
-        
         echo "🌐 Configuring for GitHub Pages deployment"
         echo "Repository: ${{ github.repository }}"
-        echo "Base URL: $BASE_URL"
+        echo "Base URL: /Gov_Oversight/"
         
-        # Update vite.config.ts for GitHub Pages deployment
-        if [ -f "vite.config.ts" ]; then
-          # Create a temporary config for production build
-          cp vite.config.ts vite.config.ts.backup
-          
-          # Add base path configuration for GitHub Pages
-          cat > vite.config.ts << 'EOF'
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import path from 'path'
-
-// https://vitejs.dev/config/
-export default defineConfig({
-  plugins: [react()],
-  base: process.env.NODE_ENV === 'production' ? '/Gov_Oversight/' : '/',
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
-  },
-  build: {
-    outDir: 'dist',
-    sourcemap: false,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          ui: ['lucide-react']
-        }
-      }
-    }
-  },
-  server: {
-    port: 5173,
-    host: true
-  }
-})
-EOF
-        fi
+        # The vite.config.ts is already configured for GitHub Pages deployment
 
     - name: Build frontend application
       run: |
