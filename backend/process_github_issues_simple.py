@@ -61,11 +61,11 @@ def parse_site_data_from_issue(issue_body: str) -> Optional[Dict[str, Any]]:
                 
                 if key == 'name':
                     site_data['name'] = value
-                elif key == 'base_url':
+                elif key in ['base_url', 'base url']:
                     site_data['base_url'] = value
-                elif key == 'rfp_page_url':
+                elif key in ['rfp_page_url', 'rfp page url', 'main_rfp_page', 'main rfp page', 'main_rfp_page_url']:
                     site_data['main_rfp_page_url'] = value
-                elif key == 'sample_rfp_url':
+                elif key in ['sample_rfp_url', 'sample rfp url', 'sample_rfp_url']:
                     site_data['sample_rfp_url'] = value
         
         # Parse field mappings
@@ -108,6 +108,11 @@ def parse_site_data_from_issue(issue_body: str) -> Optional[Dict[str, Any]]:
     # Add field mappings and metadata
     site_data['field_mappings'] = field_mappings
     site_data['description'] = f"Added via GitHub issue on {datetime.now().strftime('%Y-%m-%d')}"
+    
+    # Debug output
+    if site_data:
+        print(f"DEBUG: Parsed site data: name='{site_data.get('name')}', base_url='{site_data.get('base_url')}', main_rfp_page_url='{site_data.get('main_rfp_page_url')}'")
+        print(f"DEBUG: Found {len(field_mappings)} field mappings")
     
     return site_data if site_data else None
 
@@ -292,6 +297,7 @@ def main():
         sys.exit(1)
     
     print(f"Processing GitHub issue #{issue_number} for site addition...")
+    print(f"Issue body length: {len(issue_body)} characters")
     
     # Process the issue
     result = process_issue_for_site_addition(issue_number, issue_body)

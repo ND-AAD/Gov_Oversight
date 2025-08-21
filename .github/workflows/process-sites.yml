@@ -7,7 +7,7 @@ name: Process Site Additions
 
 on:
   issues:
-    types: [opened, labeled]
+    types: [labeled]
   schedule:
     # Fallback: every 2 hours, but only if there are pending issues
     - cron: '0 */2 * * *'
