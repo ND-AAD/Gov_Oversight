@@ -55,14 +55,19 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install requests
+          cd backend
+          pip install -r requirements.txt
 
-      - name: Get site addition issues
-        id: get-issues
+      - name: Process site addition issues with Python
+        id: process-issues
         uses: actions/github-script@v7
         with:
           script: |
+            const { execSync } = require('child_process');
+            
             let issueNumbers = [];
+            let processedIssues = [];
+            let failedIssues = [];
             
             if (context.eventName === 'issues') {
               // Single issue triggered this workflow
@@ -81,82 +86,148 @@ jobs:
               issueNumbers = issues.data.map(issue => issue.number);
             }
             
-            core.setOutput('issue-numbers', JSON.stringify(issueNumbers));
             console.log(`Processing ${issueNumbers.length} site addition issues: ${issueNumbers.join(', ')}`);
-
-      - name: Process site addition issues
-        if: steps.get-issues.outputs.issue-numbers != '[]'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const issueNumbers = JSON.parse('${{ steps.get-issues.outputs.issue-numbers }}');
             
             for (const issueNumber of issueNumbers) {
               try {
                 console.log(`Processing issue #${issueNumber}`);
                 
-                // Add success comment
-                const comment = `✅ **Site Addition Successful**
-                
-                Site addition request received and parsed successfully.
-                
-                **Next Steps:**
-                - Site configuration will be processed
-                - Site will be included in next scheduled scraping run (every 6 hours)
-                - You can monitor the site status in the dashboard
-                
-                *Processed automatically by GitHub Actions at ${new Date().toISOString()}*`;
-                
-                await github.rest.issues.createComment({
+                // Get issue details
+                const issueResponse = await github.rest.issues.get({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  issue_number: issueNumber,
-                  body: comment
+                  issue_number: issueNumber
                 });
                 
-                // Close issue with completed label
-                await github.rest.issues.update({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: issueNumber,
-                  state: 'closed',
-                  labels: ['site-addition', 'completed']
-                });
+                const issueBody = issueResponse.data.body || '';
                 
-                console.log(`✅ Successfully processed issue #${issueNumber}`);
+                // Process the issue with Python script
+                try {
+                  const result = execSync(
+                    `cd backend && PYTHONPATH=. python3 process_github_issues.py`,
+                    {
+                      env: {
+                        ...process.env,
+                        GITHUB_ISSUE_NUMBER: issueNumber.toString(),
+                        GITHUB_ISSUE_BODY: issueBody,
+                        PYTHONPATH: './backend'
+                      },
+                      encoding: 'utf8'
+                    }
+                  );
+                  
+                  console.log(`Python script output: ${result}`);
+                  
+                  // Add success comment
+                  const comment = `✅ **Site Addition Successful**
+                  
+                  Site has been successfully added to the monitoring system.
+                  
+                  **Processing Details:**
+                  ${result}
+                  
+                  **Next Steps:**
+                  - Site will be included in next scheduled scraping run (every 6 hours)
+                  - You can monitor the site status in the dashboard
+                  - Field mappings will be tested automatically
+                  
+                  *Processed automatically by GitHub Actions at ${new Date().toISOString()}*`;
+                  
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    body: comment
+                  });
+                  
+                  // Close issue with completed label
+                  await github.rest.issues.update({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    state: 'closed',
+                    labels: ['site-addition', 'completed']
+                  });
+                  
+                  processedIssues.push(issueNumber);
+                  console.log(`✅ Successfully processed issue #${issueNumber}`);
+                  
+                } catch (pythonError) {
+                  console.error(`Python script failed for issue #${issueNumber}:`, pythonError.message);
+                  
+                  // Add error comment
+                  const errorComment = `❌ **Site Addition Failed**
+                  
+                  Error processing site addition: ${pythonError.message}
+                  
+                  **Common Issues:**
+                  - Check that all required fields are present (Name, Base URL, RFP Page URL)
+                  - Ensure URLs are valid and accessible
+                  - Verify field mapping format: Field Name → "Example Value" (data_type)
+                  
+                  Please fix the issue format and try again.
+                  
+                  *Processed automatically by GitHub Actions at ${new Date().toISOString()}*`;
+                  
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    body: errorComment
+                  });
+                  
+                  // Label as failed
+                  await github.rest.issues.update({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    labels: ['site-addition', 'failed']
+                  });
+                  
+                  failedIssues.push(issueNumber);
+                }
                 
               } catch (error) {
                 console.error(`❌ Error processing issue #${issueNumber}:`, error.message);
-                
-                // Add error comment
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: issueNumber,
-                  body: `❌ **Site Addition Failed**
-                  
-                  Error processing site addition: ${error.message}
-                  
-                  Please check the issue format and try again.
-                  
-                  *Processed automatically by GitHub Actions at ${new Date().toISOString()}*`
-                });
-                
-                // Label as failed
-                await github.rest.issues.update({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: issueNumber,
-                  labels: ['site-addition', 'failed']
-                });
+                failedIssues.push(issueNumber);
               }
             }
+            
+            core.setOutput('processed-issues', JSON.stringify(processedIssues));
+            core.setOutput('failed-issues', JSON.stringify(failedIssues));
+            
+            return {
+              processed: processedIssues.length,
+              failed: failedIssues.length,
+              total: issueNumbers.length
+            };
+
+      - name: Commit updated sites.json
+        if: steps.process-issues.outputs.processed-issues != '[]'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Check if there are changes to commit
+          if git diff --quiet data/sites.json; then
+            echo "No changes to sites.json"
+          else
+            git add data/sites.json
+            git commit -m "🏛️ Add new sites from GitHub issues
+
+            Processed issues: ${{ steps.process-issues.outputs.processed-issues }}
+            
+            🤖 Generated with GitHub Actions"
+            git push
+            echo "✅ Successfully committed updated sites.json"
+          fi
 
       - name: Summary
-        if: steps.get-issues.outputs.issue-numbers != '[]'
+        if: steps.process-issues.outputs.processed-issues != '[]' || steps.process-issues.outputs.failed-issues != '[]'
         run: |
           echo "🎯 Site addition processing complete"
-          echo "Issues processed: ${{ steps.get-issues.outputs.issue-numbers }}"
+          echo "Successfully processed: ${{ steps.process-issues.outputs.processed-issues }}"
+          echo "Failed to process: ${{ steps.process-issues.outputs.failed-issues }}"
 
   process-sites-scheduled:
     runs-on: ubuntu-latest

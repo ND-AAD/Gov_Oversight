@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 LA 2028 RFP Monitor - A public oversight tool for tracking 2028 Olympics procurement contracts. This tool provides transparency by automatically scraping government RFPs, with special focus on identifying potentially concerning surveillance and infrastructure contracts.
 
+**CURRENT STATUS (August 2025)**: 🟡 Site functional but with limitations. GitHub-only architecture implemented successfully, but site addition UX requires manual GitHub issue creation due to browser security constraints.
+
 ## Development Commands
 
 ### Backend (Python)
