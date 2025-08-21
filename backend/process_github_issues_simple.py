@@ -56,17 +56,24 @@ def parse_site_data_from_issue(issue_body: str) -> Optional[Dict[str, Any]]:
             match = re.match(r'- ([^:]+):\s*(.+)', line)
             if match:
                 key, value = match.groups()
+                original_key = key.strip()
                 key = key.strip().lower().replace(' ', '_')
                 value = value.strip()
+                
+                print(f"DEBUG: Parsing site info - original_key='{original_key}', normalized_key='{key}', value='{value}'")
                 
                 if key == 'name':
                     site_data['name'] = value
                 elif key in ['base_url', 'base url']:
                     site_data['base_url'] = value
+                    print(f"DEBUG: Set base_url = '{value}'")
                 elif key in ['rfp_page_url', 'rfp page url', 'main_rfp_page', 'main rfp page', 'main_rfp_page_url']:
                     site_data['main_rfp_page_url'] = value
+                    print(f"DEBUG: Set main_rfp_page_url = '{value}'")
                 elif key in ['sample_rfp_url', 'sample rfp url', 'sample_rfp_url']:
                     site_data['sample_rfp_url'] = value
+                else:
+                    print(f"DEBUG: Unrecognized field key: '{key}'")
         
         # Parse field mappings
         elif current_section == 'field_mappings' and line.startswith('- '):
@@ -298,6 +305,10 @@ def main():
     
     print(f"Processing GitHub issue #{issue_number} for site addition...")
     print(f"Issue body length: {len(issue_body)} characters")
+    print("DEBUG: Issue body content:")
+    print("=" * 50)
+    print(issue_body)
+    print("=" * 50)
     
     # Process the issue
     result = process_issue_for_site_addition(issue_number, issue_body)

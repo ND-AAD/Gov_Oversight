@@ -38,8 +38,8 @@ jobs:
 
   process-sites-immediate:
     runs-on: ubuntu-latest
-    # Run immediately for issues and manual triggers (no dependency on check-pending)
-    if: github.event_name == 'issues' || github.event_name == 'workflow_dispatch'
+    # Run immediately for issues with site-addition label or manual triggers
+    if: (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'site-addition')) || github.event_name == 'workflow_dispatch'
     
     steps:
       - name: Checkout repository
