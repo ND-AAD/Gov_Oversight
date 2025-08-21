@@ -96,33 +96,27 @@ jobs:
           echo "Processing site addition issues..."
           ISSUE_NUMBERS='${{ steps.get-issues.outputs.issue-numbers }}'
           
-          # Process each issue using the same Python script
+          # Process each issue using a Python script
           echo "$ISSUE_NUMBERS" | jq -r '.[]' | while read issue_number; do
             echo "Processing issue #$issue_number"
-            python3 -c "
+            
+            # Create a temporary Python script for processing
+            cat > process_issue.py << 'EOF'
 import os
 import sys
 import json
 import re
-from datetime import datetime
-from pathlib import Path
-
-# Add backend to path
-sys.path.insert(0, str(Path.cwd()))
-
-from models.site_config import SiteConfig, FieldMapping, DataType
-from models.serialization import DataManager
-from scrapers.rfp_scraper import RFPScraper
 import requests
+from datetime import datetime
 
 def parse_site_issue(issue_number):
     headers = {
-        'Authorization': f'token {os.environ[\"GITHUB_TOKEN\"]}',
+        'Authorization': f'token {os.environ["GITHUB_TOKEN"]}',
         'Accept': 'application/vnd.github.v3+json'
     }
     
     response = requests.get(
-        f'https://api.github.com/repos/{os.environ[\"GITHUB_REPOSITORY\"]}/issues/{issue_number}',
+        f'https://api.github.com/repos/{os.environ["GITHUB_REPOSITORY"]}/issues/{issue_number}',
         headers=headers
     )
     
@@ -155,8 +149,8 @@ def parse_site_issue(issue_number):
     if field_section:
         for line in field_section.group(1).split('\n'):
             if line.strip().startswith('-'):
-                # Parse: - **alias:** \"value\" (type)
-                match = re.match(r'-\s*\*\*(\w+):\*\*\s*\"([^\"]+)\"\s*\((\w+)\)', line.strip())
+                # Parse: - **alias:** "value" (type)
+                match = re.match(r'-\s*\*\*(\w+):\*\*\s*"([^"]+)"\s*\((\w+)\)', line.strip())
                 if match:
                     alias, value, data_type = match.groups()
                     field_mappings.append({
@@ -174,12 +168,12 @@ def parse_site_issue(issue_number):
 
 def update_issue_status(issue_number, success, message):
     headers = {
-        'Authorization': f'token {os.environ[\"GITHUB_TOKEN\"]}',
+        'Authorization': f'token {os.environ["GITHUB_TOKEN"]}',
         'Accept': 'application/vnd.github.v3+json'
     }
     
     if success:
-        comment = f'''✅ **Site Addition Successful**
+        comment = f"""✅ **Site Addition Successful**
 
 {message}
 
@@ -188,21 +182,21 @@ def update_issue_status(issue_number, success, message):
 - You can monitor the site status in the dashboard
 - View site configuration in [sites.json](../data/sites.json)
 
-*Processed automatically by GitHub Actions at {datetime.now().isoformat()}*'''
+*Processed automatically by GitHub Actions at {datetime.now().isoformat()}*"""
         
         requests.post(
-            f'https://api.github.com/repos/{os.environ[\"GITHUB_REPOSITORY\"]}/issues/{issue_number}/comments',
+            f'https://api.github.com/repos/{os.environ["GITHUB_REPOSITORY"]}/issues/{issue_number}/comments',
             headers=headers,
             json={'body': comment}
         )
         
         requests.patch(
-            f'https://api.github.com/repos/{os.environ[\"GITHUB_REPOSITORY\"]}/issues/{issue_number}',
+            f'https://api.github.com/repos/{os.environ["GITHUB_REPOSITORY"]}/issues/{issue_number}',
             headers=headers,
             json={'state': 'closed', 'labels': ['site-addition', 'completed']}
         )
     else:
-        comment = f'''❌ **Site Addition Failed**
+        comment = f"""❌ **Site Addition Failed**
 
 {message}
 
@@ -212,47 +206,55 @@ def update_issue_status(issue_number, success, message):
 3. Try again with corrected information
 4. Contact maintainers if the issue persists
 
-*Processed automatically by GitHub Actions at {datetime.now().isoformat()}*'''
+*Processed automatically by GitHub Actions at {datetime.now().isoformat()}*"""
         
         requests.post(
-            f'https://api.github.com/repos/{os.environ[\"GITHUB_REPOSITORY\"]}/issues/{issue_number}/comments',
+            f'https://api.github.com/repos/{os.environ["GITHUB_REPOSITORY"]}/issues/{issue_number}/comments',
             headers=headers,
             json={'body': comment}
         )
         
         requests.patch(
-            f'https://api.github.com/repos/{os.environ[\"GITHUB_REPOSITORY\"]}/issues/{issue_number}',
+            f'https://api.github.com/repos/{os.environ["GITHUB_REPOSITORY"]}/issues/{issue_number}',
             headers=headers,
             json={'labels': ['site-addition', 'failed']}
         )
 
 # Main processing
-issue_number = $issue_number
-
-try:
-    print(f'Processing site addition issue #{issue_number}')
+if __name__ == "__main__":
+    issue_number = int(sys.argv[1]) if len(sys.argv) > 1 else None
+    if not issue_number:
+        print("Error: No issue number provided")
+        sys.exit(1)
     
-    # Parse issue
-    site_data, issue = parse_site_issue(issue_number)
-    print(f'Parsed site data: {site_data.get(\"name\", \"Unknown\")}')
-    
-    # For now, just mark as successful - actual site addition logic would go here
-    success = True
-    message = f'Site \"{site_data.get(\"name\", \"Unknown\")}\" configuration parsed successfully. Site addition logic needs to be implemented.'
-    
-    # Update issue with results
-    update_issue_status(issue_number, success, message)
-    
-    if success:
-        print(f'✅ Successfully processed issue #{issue_number}')
-    else:
-        print(f'❌ Failed to process issue #{issue_number}: {message}')
+    try:
+        print(f'Processing site addition issue #{issue_number}')
         
-except Exception as e:
-    error_msg = f'Processing error: {str(e)}'
-    print(f'❌ Error processing issue #{issue_number}: {error_msg}')
-    update_issue_status(issue_number, False, error_msg)
-            "
+        # Parse issue
+        site_data, issue = parse_site_issue(issue_number)
+        print(f'Parsed site data: {site_data.get("name", "Unknown")}')
+        
+        # For now, just mark as successful - actual site addition logic would go here
+        success = True
+        message = f'Site "{site_data.get("name", "Unknown")}" configuration parsed successfully. Site addition logic needs to be implemented.'
+        
+        # Update issue with results
+        update_issue_status(issue_number, success, message)
+        
+        if success:
+            print(f'✅ Successfully processed issue #{issue_number}')
+        else:
+            print(f'❌ Failed to process issue #{issue_number}: {message}')
+            
+    except Exception as e:
+        error_msg = f'Processing error: {str(e)}'
+        print(f'❌ Error processing issue #{issue_number}: {error_msg}')
+        update_issue_status(issue_number, False, error_msg)
+        sys.exit(1)
+EOF
+            
+            # Run the Python script
+            python3 process_issue.py $issue_number
           done
 
       - name: Summary
