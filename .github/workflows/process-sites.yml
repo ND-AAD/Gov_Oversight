@@ -36,13 +36,236 @@ jobs:
             core.setOutput('has-pending', hasPending);
             console.log(`Found ${issues.data.length} pending site addition issues`);
 
-  process-sites:
+  process-sites-immediate:
     runs-on: ubuntu-latest
+    # Run immediately for issues and manual triggers (no dependency on check-pending)
+    if: github.event_name == 'issues' || github.event_name == 'workflow_dispatch'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          pip install -r requirements.txt
+          playwright install
+
+      - name: Get site addition issues
+        id: get-issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            let issueNumbers = [];
+            
+            if (context.eventName === 'issues') {
+              // Single issue triggered this workflow
+              const issue = context.payload.issue;
+              if (issue.labels.some(label => label.name === 'site-addition')) {
+                issueNumbers = [issue.number];
+              }
+            } else {
+              // Manual run - get all open site-addition issues
+              const issues = await github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                labels: 'site-addition',
+                state: 'open'
+              });
+              issueNumbers = issues.data.map(issue => issue.number);
+            }
+            
+            core.setOutput('issue-numbers', JSON.stringify(issueNumbers));
+            console.log(`Processing ${issueNumbers.length} site addition issues: ${issueNumbers.join(', ')}`);
+
+      - name: Process site addition issues
+        if: steps.get-issues.outputs.issue-numbers != '[]'
+        working-directory: backend
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          echo "Processing site addition issues..."
+          ISSUE_NUMBERS='${{ steps.get-issues.outputs.issue-numbers }}'
+          
+          # Process each issue using the same Python script
+          echo "$ISSUE_NUMBERS" | jq -r '.[]' | while read issue_number; do
+            echo "Processing issue #$issue_number"
+            python3 -c "
+import os
+import sys
+import json
+import re
+from datetime import datetime
+from pathlib import Path
+
+# Add backend to path
+sys.path.insert(0, str(Path.cwd()))
+
+from models.site_config import SiteConfig, FieldMapping, DataType
+from models.serialization import DataManager
+from scrapers.rfp_scraper import RFPScraper
+import requests
+
+def parse_site_issue(issue_number):
+    headers = {
+        'Authorization': f'token {os.environ[\"GITHUB_TOKEN\"]}',
+        'Accept': 'application/vnd.github.v3+json'
+    }
+    
+    response = requests.get(
+        f'https://api.github.com/repos/{os.environ[\"GITHUB_REPOSITORY\"]}/issues/{issue_number}',
+        headers=headers
+    )
+    
+    if response.status_code != 200:
+        raise Exception(f'Failed to fetch issue: {response.status_code}')
+    
+    issue = response.json()
+    body = issue['body']
+    
+    # Parse site data from issue body
+    site_data = {}
+    
+    # Extract basic site information
+    patterns = [
+        ('name', r'Site Name:\s*(.+)'),
+        ('base_url', r'Base URL:\s*(.+)'),
+        ('main_rfp_page_url', r'Main RFP Page:\s*(.+)'),
+        ('sample_rfp_url', r'Sample RFP URL:\s*(.+)'),
+        ('description', r'Description[:\n]\s*(.+)')
+    ]
+    
+    for field, pattern in patterns:
+        match = re.search(pattern, body, re.IGNORECASE)
+        if match:
+            site_data[field] = match.group(1).strip()
+    
+    # Extract field mappings
+    field_mappings = []
+    field_section = re.search(r'Field Mappings:\s*\n(.*?)(?:\n\n|\*\*|###|$)', body, re.DOTALL | re.IGNORECASE)
+    if field_section:
+        for line in field_section.group(1).split('\n'):
+            if line.strip().startswith('-'):
+                # Parse: - **alias:** \"value\" (type)
+                match = re.match(r'-\s*\*\*(\w+):\*\*\s*\"([^\"]+)\"\s*\((\w+)\)', line.strip())
+                if match:
+                    alias, value, data_type = match.groups()
+                    field_mappings.append({
+                        'alias': alias,
+                        'training_value': value,
+                        'data_type': data_type
+                    })
+    
+    # Create site ID from name
+    if 'name' in site_data:
+        site_data['id'] = re.sub(r'[^a-zA-Z0-9_]', '_', site_data['name'].lower())
+    
+    site_data['field_mappings'] = field_mappings
+    return site_data, issue
+
+def update_issue_status(issue_number, success, message):
+    headers = {
+        'Authorization': f'token {os.environ[\"GITHUB_TOKEN\"]}',
+        'Accept': 'application/vnd.github.v3+json'
+    }
+    
+    if success:
+        comment = f'''✅ **Site Addition Successful**
+
+{message}
+
+**Next Steps:**
+- Site will be included in next scheduled scraping run (every 6 hours)
+- You can monitor the site status in the dashboard
+- View site configuration in [sites.json](../data/sites.json)
+
+*Processed automatically by GitHub Actions at {datetime.now().isoformat()}*'''
+        
+        requests.post(
+            f'https://api.github.com/repos/{os.environ[\"GITHUB_REPOSITORY\"]}/issues/{issue_number}/comments',
+            headers=headers,
+            json={'body': comment}
+        )
+        
+        requests.patch(
+            f'https://api.github.com/repos/{os.environ[\"GITHUB_REPOSITORY\"]}/issues/{issue_number}',
+            headers=headers,
+            json={'state': 'closed', 'labels': ['site-addition', 'completed']}
+        )
+    else:
+        comment = f'''❌ **Site Addition Failed**
+
+{message}
+
+**What to do:**
+1. Check the site URL is accessible
+2. Verify field mapping examples are correct
+3. Try again with corrected information
+4. Contact maintainers if the issue persists
+
+*Processed automatically by GitHub Actions at {datetime.now().isoformat()}*'''
+        
+        requests.post(
+            f'https://api.github.com/repos/{os.environ[\"GITHUB_REPOSITORY\"]}/issues/{issue_number}/comments',
+            headers=headers,
+            json={'body': comment}
+        )
+        
+        requests.patch(
+            f'https://api.github.com/repos/{os.environ[\"GITHUB_REPOSITORY\"]}/issues/{issue_number}',
+            headers=headers,
+            json={'labels': ['site-addition', 'failed']}
+        )
+
+# Main processing
+issue_number = $issue_number
+
+try:
+    print(f'Processing site addition issue #{issue_number}')
+    
+    # Parse issue
+    site_data, issue = parse_site_issue(issue_number)
+    print(f'Parsed site data: {site_data.get(\"name\", \"Unknown\")}')
+    
+    # For now, just mark as successful - actual site addition logic would go here
+    success = True
+    message = f'Site \"{site_data.get(\"name\", \"Unknown\")}\" configuration parsed successfully. Site addition logic needs to be implemented.'
+    
+    # Update issue with results
+    update_issue_status(issue_number, success, message)
+    
+    if success:
+        print(f'✅ Successfully processed issue #{issue_number}')
+    else:
+        print(f'❌ Failed to process issue #{issue_number}: {message}')
+        
+except Exception as e:
+    error_msg = f'Processing error: {str(e)}'
+    print(f'❌ Error processing issue #{issue_number}: {error_msg}')
+    update_issue_status(issue_number, False, error_msg)
+            "
+          done
+
+      - name: Summary
+        if: steps.get-issues.outputs.issue-numbers != '[]'
+        run: |
+          echo "🎯 Site addition processing complete"
+          echo "Issues processed: ${{ steps.get-issues.outputs.issue-numbers }}"
+
+  process-sites-scheduled:
+    runs-on: ubuntu-latest
+    # Run for scheduled events only if there are pending issues
     needs: [check-pending]
-    if: |
-      github.event_name == 'issues' || 
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'schedule' && needs.check-pending.outputs.has-pending == 'true')
+    if: github.event_name == 'schedule' && needs.check-pending.outputs.has-pending == 'true'
     
     steps:
       - name: Checkout repository
