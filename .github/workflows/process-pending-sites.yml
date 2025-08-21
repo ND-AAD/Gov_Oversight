@@ -1,7 +1,7 @@
 # GitHub Actions Workflow: Process Pending Site Requests
 # 
-# This workflow creates GitHub issues from frontend localStorage requests
-# This is a backup/alternative to the serverless function approach
+# Primary method for processing site addition requests from frontend
+# Replaces serverless functions for a GitHub-only architecture
 
 name: Process Pending Site Requests
 

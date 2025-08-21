@@ -1,7 +1,0 @@
-{
-  "functions": {
-    "api/add-site.js": {
-      "runtime": "nodejs18.x"
-    }
-  }
-}

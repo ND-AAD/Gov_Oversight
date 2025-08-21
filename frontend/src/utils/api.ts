@@ -148,22 +148,27 @@ export interface CreateSiteRequest {
 }
 
 export const createSite = async (siteData: CreateSiteRequest): Promise<SiteConfig> => {
-  // Check if we're in static mode (GitHub Pages or any non-localhost)
-  const isStaticMode = window.location.hostname.includes('github.io') || 
-                      !window.location.hostname.includes('localhost');
+  // Check if we're in development mode (localhost with API server)
+  const isDevelopmentMode = window.location.hostname.includes('localhost');
   
-  console.log('createSite - hostname:', window.location.hostname, 'isStaticMode:', isStaticMode);
+  console.log('createSite - hostname:', window.location.hostname, 'isDevelopmentMode:', isDevelopmentMode);
   
-  if (isStaticMode) {
-    // GitHub API approach for static mode
+  if (!isDevelopmentMode) {
+    // GitHub-only approach for production (static mode)
     return await createSiteViaGitHub(siteData);
   } else {
-    // Original API server approach for development
-    const response = await api.post<ApiResponse<SiteConfig>>('/api/sites', siteData);
-    if (!response.data.data) {
-      throw new Error('Failed to create site');
+    try {
+      // Try API server first in development
+      const response = await api.post<ApiResponse<SiteConfig>>('/api/sites', siteData);
+      if (!response.data.data) {
+        throw new Error('Failed to create site');
+      }
+      return response.data.data;
+    } catch (error) {
+      // Fallback to GitHub approach even in development if API server unavailable
+      console.warn('API server unavailable, falling back to GitHub approach');
+      return await createSiteViaGitHub(siteData);
     }
-    return response.data.data;
   }
 };
 

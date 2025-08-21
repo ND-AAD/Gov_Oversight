@@ -336,22 +336,22 @@ Frontend (Static) ←→ API Server ←→ Data Files
    GitHub Pages (confused about mode)
 ```
 
-### **NEW (GitHub-Native with UX Preserved) Architecture**:
+### **NEW (GitHub-Only Architecture)**:
 ```
-Frontend UI (Unchanged) → localStorage Queue → GitHub Actions
-                             ↓
-                    GitHub Data Files ← Scraping Workflow
-                             ↓
-                      GitHub Pages Deployment
+Frontend UI → localStorage Queue → GitHub Actions
+                       ↓
+              GitHub Data Files ← Scraping Workflow
+                       ↓
+                GitHub Pages Deployment
 ```
 
 ### **Key Changes**:
-1. **Preserve Excellent UX**: Keep current professional Add Site interface
-2. **Smart Backend**: Frontend automatically handles static vs API modes
-3. **Queue-Based Processing**: Sites queued via localStorage, processed by GitHub Actions
-4. **Immediate Feedback**: Users see sites in list right away for great UX
-5. **GitHub Integration**: Backend operations use GitHub API for data persistence
-6. **Transparency**: All data changes still tracked in git history
+1. **Removed Vercel Dependency**: Eliminated serverless functions and external services
+2. **GitHub-Only Architecture**: All functionality handled by GitHub Actions and Pages
+3. **Simplified Deployment**: No external configuration or API keys needed
+4. **Queue-Based Processing**: Sites queued via localStorage, processed by GitHub Actions
+5. **Immediate Feedback**: Users see sites in list right away for great UX
+6. **Full Transparency**: All operations within GitHub ecosystem, complete audit trail
 
 ---
 
@@ -387,10 +387,10 @@ Frontend UI (Unchanged) → localStorage Queue → GitHub Actions
 
 **ROOT CAUSE**: Frontend stores site requests in localStorage, but there's no mechanism to transfer them to GitHub Actions for processing.
 
-**RESOLUTION OPTIONS**:
-1. **Server-Side Bridge**: Deploy serverless function to accept frontend requests and create GitHub issues
-2. **Manual GitHub Flow**: Guide users to manually create GitHub issues (rejected for UX reasons)
-3. **Alternative Architecture**: Explore different approaches to frontend-backend communication
+**RESOLUTION IMPLEMENTED**:
+1. **GitHub-Only Architecture**: Removed Vercel dependency, using pure GitHub Actions approach
+2. **localStorage → GitHub Actions**: Frontend stores requests locally, GitHub Actions process them
+3. **Simplified Deployment**: No external services needed, everything within GitHub ecosystem
 
 **IMMEDIATE TASKS**:
 1. **⚠️ Diagnose**: Confirm exactly why site processing isn't working

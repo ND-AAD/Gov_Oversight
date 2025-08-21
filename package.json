@@ -1,18 +1,11 @@
 {
-  "name": "gov-oversight-serverless",
+  "name": "gov-oversight",
   "version": "1.0.0",
-  "description": "Serverless functions for LA 2028 RFP Monitor",
-  "main": "api/add-site.js",
+  "description": "LA 2028 RFP Monitor - Government Procurement Transparency Tool",
   "scripts": {
-    "dev": "vercel dev",
-    "build": "echo 'No build step required for serverless functions'",
-    "deploy": "vercel --prod"
-  },
-  "dependencies": {
-    "@octokit/rest": "^20.0.2"
-  },
-  "devDependencies": {
-    "@vercel/node": "^3.0.21"
+    "dev": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "deploy": "echo 'Deployment handled by GitHub Actions'"
   },
   "engines": {
     "node": ">=18.0.0"

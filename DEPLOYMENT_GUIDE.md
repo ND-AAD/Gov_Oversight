@@ -1,64 +1,46 @@
-# Deployment Guide: GitHub-Native Backend
+# Deployment Guide: GitHub-Only Architecture
 
-This guide shows how to deploy the hybrid architecture that preserves your excellent UX while enabling automated backend processing.
+This guide shows how to deploy the simplified GitHub-only architecture that eliminates external dependencies while preserving excellent UX.
 
 ## Architecture Overview
 
 ```
-User adds site → Serverless function → GitHub issue → GitHub Actions → Site added
+User adds site → localStorage → GitHub Actions → Site added
               ↓
           Immediate UX feedback (site appears as "Processing")
 ```
 
 ## Setup Steps
 
-### 1. Deploy Serverless Function (Vercel - Recommended)
-
-```bash
-# Install Vercel CLI
-npm install -g vercel
-
-# Deploy from project root
-vercel --prod
-
-# Set environment variables in Vercel dashboard
-```
-
-**Required Environment Variables in Vercel:**
-- `GITHUB_TOKEN`: Personal access token with repo permissions
-- `GITHUB_OWNER`: `ND-AAD`
-- `GITHUB_REPO`: `Gov_Oversight`
-
-### 2. GitHub Repository Settings
+### 1. GitHub Repository Configuration
 
 **Enable GitHub Actions:**
 - Go to Settings → Actions → General
 - Allow all actions and reusable workflows
 
-**Set Repository Secrets:**
-- `GITHUB_TOKEN`: Same token as Vercel (for workflow permissions)
+**Enable GitHub Pages:**
+- Go to Settings → Pages
+- Source: Deploy from a branch
+- Branch: main / (root)
 
-**Enable Issues:**
-- Go to Settings → General → Features
-- Ensure "Issues" is checked
+**Set Repository Secrets (if needed):**
+- GitHub Actions use `GITHUB_TOKEN` automatically (no setup required)
 
-### 3. Frontend Configuration
+### 2. Frontend Configuration (Optional)
 
-Update your frontend environment variables:
+For local development, you can set environment variables:
 
 ```bash
-# .env.local (for local development)
-VITE_SERVERLESS_ENDPOINT=https://your-app.vercel.app/api/add-site
-VITE_API_MODE=static
+# .env.local (for local development only)
+VITE_API_MODE=development  # Enables API server mode
 ```
 
-### 4. Test the Flow
+### 3. Test the Flow
 
 1. **Add a test site** through the dashboard
-2. **Check Vercel logs** to see function execution
-3. **Check GitHub issues** for the created issue
-4. **Check GitHub Actions** for processing workflow
-5. **Verify site appears** in data/sites.json
+2. **Check browser localStorage** to see queued requests
+3. **Check GitHub Actions** for processing workflow (runs hourly)
+4. **Verify site appears** in data/sites.json after processing
 
 ## User Experience Flow
 
@@ -74,75 +56,57 @@ User adds site → [30s] "Processing" → [2m] "Testing" → [1m] "Active ✅ - 
 
 ## Troubleshooting
 
-### Serverless Function Issues
-```bash
-# Check Vercel function logs
-vercel logs --follow
-
-# Test function locally
-vercel dev
-curl -X POST http://localhost:3000/api/add-site -H "Content-Type: application/json" -d '{"name":"Test","base_url":"https://example.com"}'
-```
-
 ### GitHub Actions Issues
 - Check Actions tab for workflow runs
-- Verify repository permissions for GITHUB_TOKEN
-- Check issue labels (must include 'site-addition')
+- Verify workflows are enabled in repository settings
+- Check workflow files syntax in `.github/workflows/`
 
 ### Frontend Issues
-- Check browser console for API errors
-- Verify VITE_SERVERLESS_ENDPOINT is correct
-- Test with browser dev tools Network tab
+- Check browser console for errors
+- Verify localStorage for queued requests
+- Check Network tab for failed static file requests
+
+### Data Issues
+- Ensure `data/` directory has proper JSON structure
+- Check file permissions for GitHub Actions
 
 ## Environment Variables Summary
 
-**Vercel Environment Variables:**
+**GitHub Actions (automatic):**
 ```
-GITHUB_TOKEN=github_pat_xxxxxxxxxxxxx
-GITHUB_OWNER=ND-AAD  
-GITHUB_REPO=Gov_Oversight
-```
-
-**Frontend Environment Variables:**
-```
-VITE_SERVERLESS_ENDPOINT=https://your-app.vercel.app/api/add-site
-VITE_API_MODE=static
-VITE_STATIC_DATA_BASE=/Gov_Oversight/data
+GITHUB_TOKEN - Automatically provided
+GITHUB_REPOSITORY - Automatically provided
 ```
 
-## GitHub Token Permissions
-
-Your GitHub token needs these permissions:
-- `repo` (full repository access)
-- `workflow` (if you want manual trigger capability)
-
-## Alternative Serverless Providers
-
-### Netlify Functions
-```javascript
-// netlify/functions/add-site.js
-exports.handler = async (event, context) => {
-  // Same logic as api/add-site.js
-};
+**Frontend (optional for development):**
+```
+VITE_API_MODE=development    # For local API server
+VITE_STATIC_DATA_BASE=/Gov_Oversight/data  # GitHub Pages path
 ```
 
-### Railway/Railway Functions
-- Upload the same code structure
-- Set same environment variables
+## No External Dependencies
+
+This architecture requires:
+- ✅ GitHub repository (free)
+- ✅ GitHub Pages (free)
+- ✅ GitHub Actions (free for public repos)
+- ❌ No Vercel account needed
+- ❌ No API keys to manage
+- ❌ No external services
 
 ## Security Considerations
 
-- GitHub token is stored securely in Vercel environment
-- No secrets exposed to frontend
-- All GitHub API calls happen server-side
-- Full audit trail through GitHub issues
+- All processing happens within GitHub ecosystem
+- No external API keys or tokens needed
+- Full transparency through git history
+- localStorage data stays in user's browser
 
 ## Monitoring
 
-- **Vercel Dashboard**: Function execution metrics
-- **GitHub Actions**: Processing workflow status  
-- **GitHub Issues**: Full audit trail of site additions
-- **Browser Console**: Frontend error reporting
+- **GitHub Actions**: Processing workflow status in Actions tab
+- **GitHub Pages**: Site deployment status in repository settings
+- **Browser Console**: Frontend error reporting and localStorage inspection
+- **Git History**: Complete audit trail of all changes
 
 ---
 

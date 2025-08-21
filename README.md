@@ -32,12 +32,13 @@ This makes the scraper incredibly resilient to website changes while requiring z
 
 ## 🏗️ Architecture
 
-- **Frontend**: React + TypeScript with shadcn/ui components
+- **Frontend**: React + TypeScript with shadcn/ui components  
 - **Backend**: Python with Playwright for robust web scraping
 - **Storage**: JSON files for simplicity and transparency
 - **Hosting**: GitHub Pages for free, reliable hosting
-- **Automation**: GitHub Actions for scheduled scraping
+- **Automation**: GitHub Actions for all processing (scraping, site management, deployment)
 - **Data**: Publicly accessible at `/data/rfps.json`
+- **Site Management**: localStorage → GitHub Actions workflow for adding sites
 
 ## 📋 Current Status
 
@@ -62,8 +63,12 @@ See `WORK_PLAN.md` for detailed progress tracking.
 - Node.js 18+
 - Git
 
-### Backend Setup
+### Quick Start
 ```bash
+# Frontend development
+npm run dev
+
+# Backend development
 cd backend
 pip install -r requirements.txt
 playwright install
@@ -75,6 +80,14 @@ python main.py --test
 cd frontend
 npm install
 npm run dev
+```
+
+### Backend Setup
+```bash
+cd backend
+pip install -r requirements.txt
+playwright install
+python main.py --test
 ```
 
 ## 📊 Data Structure
