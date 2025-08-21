@@ -120,7 +120,7 @@ export const getSites = async (): Promise<SiteConfig[]> => {
       
       // Filter out soft-deleted sites
       const deletedSites = JSON.parse(localStorage.getItem('soft_deleted_sites') || '[]');
-      const deletedIds = new Set(deletedSites.map((site: any) => site.id));
+      const deletedIds = new Set<string>(deletedSites.map((site: any) => site.id as string));
       sites = sites.filter(site => !deletedIds.has(site.id));
       
       // Clean up ignored RFPs from deleted sites
