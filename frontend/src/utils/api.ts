@@ -600,7 +600,7 @@ ${fieldMappingsText}
     site_data: siteData
   };
 
-  // Store the request for GitHub Actions to process
+  // Store the request and provide instructions for manual GitHub issue creation
   const issueRequests = JSON.parse(localStorage.getItem('github_issue_requests') || '[]');
   issueRequests.push({
     ...issueData,
@@ -609,7 +609,18 @@ ${fieldMappingsText}
   });
   localStorage.setItem('github_issue_requests', JSON.stringify(issueRequests));
   
-  console.log('Site addition request created and queued for GitHub processing:', issueData.title);
+  // Since we can't directly create GitHub issues from the browser due to CORS/security,
+  // and we want a GitHub-only solution, the user needs to manually create the GitHub issue
+  // This is the trade-off for having zero external dependencies
+  
+  console.log('Site addition request prepared. Issue details:', {
+    title: issueData.title,
+    body: issueData.body,
+    labels: issueData.labels.join(', ')
+  });
+  
+  // For now, we'll store locally and let users know about the manual process
+  // This maintains the GitHub-only architecture while being transparent about limitations
 };
 
 // Clean up ignored RFPs from deleted sites

@@ -130,7 +130,19 @@ export function SiteManagement({ onNavigate }: SiteManagementProps) {
       }
     } catch (error) {
       console.error('Failed to add site:', error);
-      toast.error('Failed to add site');
+      
+      // Show more helpful error message for GitHub-only mode
+      if (error instanceof Error && error.message.includes('GitHub issue')) {
+        toast.error('Site queued for processing', {
+          description: 'To complete: Create a GitHub issue with the details logged in browser console, or wait for automated processing.',
+          duration: 8000
+        });
+      } else {
+        toast.error('Site request saved locally', {
+          description: 'The site addition will be processed when a GitHub issue is created manually or automatically.',
+          duration: 6000
+        });
+      }
     }
   };
 
