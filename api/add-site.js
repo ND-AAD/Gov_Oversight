@@ -8,7 +8,7 @@
  * Endpoint: /api/add-site
  */
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // Enable CORS for frontend
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -57,7 +57,7 @@ export default async function handler(req, res) {
  * Create GitHub issue for site addition using GitHub API
  */
 async function createSiteAdditionIssue(siteData) {
-  const { Octokit } = await import('@octokit/rest');
+  const { Octokit } = require('@octokit/rest');
   
   const octokit = new Octokit({
     auth: process.env.GITHUB_TOKEN

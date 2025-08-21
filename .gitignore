@@ -118,3 +118,4 @@ backend/demo_real_world.py
 # Test outputs
 test-results/
 test-reports/
+.vercel
