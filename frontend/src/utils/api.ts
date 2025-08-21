@@ -2,43 +2,50 @@ import axios from 'axios';
 import type { RFP, SiteConfig, ApiResponse } from '../types/rfp';
 
 // API configuration - supports both development and static hosting
-const API_MODE = import.meta.env.VITE_API_MODE || (window.location.hostname.includes('github.io') ? 'static' : 'development');
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001';
+const isDevelopmentMode = window.location.hostname.includes('localhost');
+const API_MODE = import.meta.env.VITE_API_MODE || (isDevelopmentMode ? 'development' : 'static');
+const API_BASE_URL = import.meta.env.VITE_API_URL || (isDevelopmentMode ? 'http://localhost:8001' : '');
 const STATIC_DATA_BASE = import.meta.env.VITE_STATIC_DATA_BASE || '/Gov_Oversight/data';
 
-const api = axios.create({
+// Only create axios instance if we have a base URL (development mode)
+const api = API_BASE_URL ? axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
-});
+}) : null;
 
-// Add response interceptor for error handling
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    console.error('API Error:', error);
-    
-    if (error.response?.status === 404) {
-      throw new Error('Resource not found');
-    } else if (error.response?.status >= 500) {
-      throw new Error('Server error - please try again later');
-    } else if (error.response?.data?.detail) {
-      const detail = error.response.data.detail;
-      if (typeof detail === 'string') {
-        throw new Error(detail);
-      } else {
-        throw new Error(detail.message || 'API error');
+// Add response interceptor for error handling (only if api instance exists)
+if (api) {
+  api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      console.error('API Error:', error);
+      
+      if (error.response?.status === 404) {
+        throw new Error('Resource not found');
+      } else if (error.response?.status >= 500) {
+        throw new Error('Server error - please try again later');
+      } else if (error.response?.data?.detail) {
+        const detail = error.response.data.detail;
+        if (typeof detail === 'string') {
+          throw new Error(detail);
+        } else {
+          throw new Error(detail.message || 'API error');
+        }
       }
+      
+      throw error;
     }
-    
-    throw error;
-  }
-);
+  );
+}
 
 // Health check
 export const healthCheck = async (): Promise<{ status: string; timestamp: string }> => {
+  if (!api || !isDevelopmentMode) {
+    return { status: 'static', timestamp: new Date().toISOString() };
+  }
   const response = await api.get('/health');
   return response.data;
 };
@@ -54,16 +61,20 @@ export const getRFPs = async (): Promise<RFP[]> => {
     }
     
     // In development mode, try API first, fallback to static
-    try {
-      const response = await api.get<ApiResponse<RFP[]>>('/api/rfps');
-      return response.data.data || [];
-    } catch (apiError) {
-      // If API server is not available, try to load from static files
-      console.warn('API server not available, loading from static files');
-      const staticPath = window.location.hostname.includes('github.io') ? '/Gov_Oversight/data/rfps.json' : '/data/rfps.json';
-      const response = await axios.get(staticPath);
-      return response.data.rfps || [];
+    if (api) {
+      try {
+        const response = await api.get<ApiResponse<RFP[]>>('/api/rfps');
+        return response.data.data || [];
+      } catch (apiError) {
+        // API call failed, fallback to static files
+      }
     }
+    
+    // Fallback to static files
+    console.warn('API server not available, loading from static files');
+    const staticPath = window.location.hostname.includes('github.io') ? '/Gov_Oversight/data/rfps.json' : '/data/rfps.json';
+    const response = await axios.get(staticPath);
+    return response.data.rfps || [];
   } catch (error) {
     console.error('Failed to load RFP data:', error);
     return []; // Return empty array on error
@@ -71,6 +82,9 @@ export const getRFPs = async (): Promise<RFP[]> => {
 };
 
 export const getRFP = async (rfpId: string): Promise<RFP> => {
+  if (!api || !isDevelopmentMode) {
+    throw new Error('RFP details not available in GitHub-only mode');
+  }
   const response = await api.get<ApiResponse<RFP>>(`/api/rfps/${rfpId}`);
   if (!response.data.data) {
     throw new Error('RFP not found');
@@ -79,6 +93,9 @@ export const getRFP = async (rfpId: string): Promise<RFP> => {
 };
 
 export const deleteRFP = async (rfpId: string): Promise<void> => {
+  if (!api || !isDevelopmentMode) {
+    throw new Error('RFP deletion not available in GitHub-only mode');
+  }
   await api.delete(`/api/rfps/${rfpId}`);
 };
 
@@ -94,11 +111,17 @@ export const getSites = async (): Promise<SiteConfig[]> => {
       sites = response.data.sites || [];
     } else {
       // In development mode, try API first, fallback to static
-      try {
-        const response = await api.get<ApiResponse<SiteConfig[]>>('/api/sites');
-        sites = response.data.data || [];
-      } catch (apiError) {
-        // If API server is not available, try to load from static files
+      if (api) {
+        try {
+          const response = await api.get<ApiResponse<SiteConfig[]>>('/api/sites');
+          sites = response.data.data || [];
+        } catch (apiError) {
+          // API call failed, fallback to static files
+        }
+      }
+      
+      // Fallback to static files if no API or API failed
+      if (sites.length === 0) {
         console.warn('API server not available, loading site configs from static files');
         const staticPath = window.location.hostname.includes('github.io') ? '/Gov_Oversight/data/sites.json' : '/data/sites.json';
         const response = await axios.get(staticPath);
@@ -157,16 +180,21 @@ export const createSite = async (siteData: CreateSiteRequest): Promise<SiteConfi
     // GitHub-only approach for production (static mode)
     return await createSiteViaGitHub(siteData);
   } else {
-    try {
-      // Try API server first in development
-      const response = await api.post<ApiResponse<SiteConfig>>('/api/sites', siteData);
-      if (!response.data.data) {
-        throw new Error('Failed to create site');
+    if (api) {
+      try {
+        // Try API server first in development
+        const response = await api.post<ApiResponse<SiteConfig>>('/api/sites', siteData);
+        if (!response.data.data) {
+          throw new Error('Failed to create site');
+        }
+        return response.data.data;
+      } catch (error) {
+        // Fallback to GitHub approach even in development if API server unavailable
+        console.warn('API server unavailable, falling back to GitHub approach');
+        return await createSiteViaGitHub(siteData);
       }
-      return response.data.data;
-    } catch (error) {
-      // Fallback to GitHub approach even in development if API server unavailable
-      console.warn('API server unavailable, falling back to GitHub approach');
+    } else {
+      // No API available, use GitHub approach
       return await createSiteViaGitHub(siteData);
     }
   }
@@ -182,14 +210,33 @@ export const createFieldMappings = async (
   siteId: string,
   fieldMappings: FieldMappingRequest[]
 ): Promise<SiteConfig> => {
-  const response = await api.post<ApiResponse<SiteConfig>>(
-    `/api/sites/${siteId}/field-mappings`,
-    fieldMappings
-  );
-  if (!response.data.data) {
-    throw new Error('Failed to create field mappings');
+  // Check if we're in development mode (localhost with API server)
+  const isDevelopmentMode = window.location.hostname.includes('localhost');
+  
+  if (!isDevelopmentMode) {
+    // In GitHub-only mode, field mappings should be included in site creation
+    // This function shouldn't be called separately in production
+    throw new Error('Field mappings should be included in initial site creation for GitHub-only mode');
   }
-  return response.data.data;
+  
+  if (!api) {
+    throw new Error('API server unavailable - field mappings not created');
+  }
+  
+  try {
+    const response = await api.post<ApiResponse<SiteConfig>>(
+      `/api/sites/${siteId}/field-mappings`,
+      fieldMappings
+    );
+    if (!response.data.data) {
+      throw new Error('Failed to create field mappings');
+    }
+    return response.data.data;
+  } catch (error) {
+    // In development, if API server unavailable, just return a mock response
+    console.warn('API server unavailable for field mappings');
+    throw new Error('API server unavailable - field mappings not created');
+  }
 };
 
 export const testSite = async (siteId: string): Promise<{
@@ -198,8 +245,32 @@ export const testSite = async (siteId: string): Promise<{
   warnings: string[];
   tested_at: string;
 }> => {
-  const response = await api.post<ApiResponse<any>>(`/api/sites/${siteId}/test`);
-  return response.data.data;
+  // Check if we're in development mode (localhost with API server)
+  const isDevelopmentMode = window.location.hostname.includes('localhost');
+  
+  if (!isDevelopmentMode) {
+    // In GitHub-only mode, return a placeholder response
+    // Testing will be handled by GitHub Actions after site is processed
+    return {
+      success: true,
+      errors: [],
+      warnings: ['Site testing will be performed by GitHub Actions after processing'],
+      tested_at: new Date().toISOString()
+    };
+  }
+  
+  try {
+    const response = await api.post<ApiResponse<any>>(`/api/sites/${siteId}/test`);
+    return response.data.data;
+  } catch (error) {
+    // Fallback for development mode when API server unavailable
+    return {
+      success: false,
+      errors: ['API server unavailable for testing'],
+      warnings: ['Testing will be performed when site is processed by GitHub Actions'],
+      tested_at: new Date().toISOString()
+    };
+  }
 };
 
 // Soft delete a site (mark as deleted but preserve data)
@@ -234,8 +305,12 @@ export const softDeleteSite = async (siteId: string, siteName: string): Promise<
     localStorage.setItem('soft_deleted_sites', JSON.stringify(deletedSites));
     
   } else {
-    // Development mode - use API
-    await api.post(`/api/sites/${siteId}/soft-delete`);
+    // Development mode - use API if available
+    if (api) {
+      await api.post(`/api/sites/${siteId}/soft-delete`);
+    } else {
+      throw new Error('API server unavailable for site deletion');
+    }
   }
 };
 
@@ -294,8 +369,12 @@ export const startScraping = async (forceFullScan: boolean = false): Promise<voi
     // we'll create a GitHub issue that triggers the workflow
     await triggerScrapingViaGitHub(forceFullScan);
   } else {
-    // Development mode - use API
-    await api.post('/api/scrape', { force_full_scan: forceFullScan });
+    // Development mode - use API if available
+    if (api) {
+      await api.post('/api/scrape', { force_full_scan: forceFullScan });
+    } else {
+      throw new Error('API server unavailable for scraping trigger');
+    }
   }
 };
 
@@ -320,6 +399,26 @@ export const getStats = async (): Promise<{
   sites: { total: number; active: number; errors: number };
   last_updated: string;
 }> => {
+  if (!api || !isDevelopmentMode) {
+    // In GitHub-only mode, calculate stats from loaded data
+    const rfps = await getRFPs();
+    const sites = await getSites();
+    
+    return {
+      rfps: {
+        total: rfps.length,
+        high_priority: rfps.filter(rfp => rfp.categories?.includes('surveillance')).length,
+        closing_soon: 0 // Could be calculated if needed
+      },
+      sites: {
+        total: sites.length,
+        active: sites.filter(site => site.status === 'active').length,
+        errors: sites.filter(site => site.status === 'error').length
+      },
+      last_updated: new Date().toISOString()
+    };
+  }
+  
   const response = await api.get<ApiResponse<any>>('/api/stats');
   return response.data.data;
 };
@@ -330,6 +429,20 @@ export const checkOlympicRelevance = async (text: string): Promise<{
   keywords: string[];
   score: number;
 }> => {
+  if (!api || !isDevelopmentMode) {
+    // In GitHub-only mode, provide basic keyword matching
+    const surveillanceKeywords = ['surveillance', 'biometric', 'facial recognition', 'monitoring', 'security', 'olympics', '2028'];
+    const foundKeywords = surveillanceKeywords.filter(keyword => 
+      text.toLowerCase().includes(keyword.toLowerCase())
+    );
+    
+    return {
+      is_relevant: foundKeywords.length > 0,
+      keywords: foundKeywords,
+      score: foundKeywords.length / surveillanceKeywords.length
+    };
+  }
+  
   const response = await api.post<ApiResponse<any>>('/api/check-relevance', { text });
   return response.data.data;
 };

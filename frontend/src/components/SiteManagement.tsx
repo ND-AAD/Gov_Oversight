@@ -85,26 +85,25 @@ export function SiteManagement({ onNavigate }: SiteManagementProps) {
     // Site creation now handles both API and GitHub modes automatically
 
     try {
+      // Prepare field mappings if in advanced mode
+      const fieldMappings = newSite.isAdvanced && newSite.customParameters.length > 0
+        ? newSite.customParameters.map(param => ({
+            alias: param.alias,
+            sample_value: param.currentValue,
+            data_type: 'text' // Default to text, can be enhanced later
+          }))
+        : [];
+
       const siteData = {
         name: newSite.name,
         base_url: newSite.baseUrl,
         main_rfp_page_url: newSite.mainRfpPageUrl || newSite.baseUrl,
         sample_rfp_url: newSite.sampleRfpUrl || '',
-        description: newSite.description
+        description: newSite.description,
+        field_mappings: fieldMappings
       };
 
       const createdSite = await createSite(siteData);
-      
-      // If advanced mode and custom parameters, create field mappings
-      if (newSite.isAdvanced && newSite.customParameters.length > 0) {
-        const fieldMappings = newSite.customParameters.map(param => ({
-          alias: param.alias,
-          sample_value: param.currentValue,
-          data_type: 'text' // Default to text, can be enhanced later
-        }));
-        
-        await createFieldMappings(createdSite.id, fieldMappings);
-      }
 
       // Reload sites
       await loadSites();
