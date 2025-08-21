@@ -259,6 +259,15 @@ export const testSite = async (siteId: string): Promise<{
     };
   }
   
+  if (!api) {
+    return {
+      success: false,
+      errors: ['API server unavailable for testing'],
+      warnings: ['Testing will be performed when site is processed by GitHub Actions'],
+      tested_at: new Date().toISOString()
+    };
+  }
+  
   try {
     const response = await api.post<ApiResponse<any>>(`/api/sites/${siteId}/test`);
     return response.data.data;

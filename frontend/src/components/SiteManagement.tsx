@@ -20,7 +20,7 @@ import {
   TestTube
 } from 'lucide-react';
 import type { SiteConfig } from '../types/rfp';
-import { createSite, createFieldMappings, testSite, softDeleteSite, autoLoadSites } from '../utils/api';
+import { createSite, testSite, softDeleteSite, autoLoadSites } from '../utils/api';
 import { toast } from 'sonner';
 
 interface SiteManagementProps {
@@ -103,7 +103,7 @@ export function SiteManagement({ onNavigate }: SiteManagementProps) {
         field_mappings: fieldMappings
       };
 
-      const createdSite = await createSite(siteData);
+      await createSite(siteData);
 
       // Reload sites
       await loadSites();
