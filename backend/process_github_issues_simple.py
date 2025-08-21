@@ -40,7 +40,7 @@ def parse_site_data_from_issue(issue_body: str) -> Optional[Dict[str, Any]]:
     lines = issue_body.split('\n')
     current_section = None
     
-    for line in lines:
+    for i, line in enumerate(lines):
         line = line.strip()
         
         # Section headers
@@ -53,12 +53,26 @@ def parse_site_data_from_issue(issue_body: str) -> Optional[Dict[str, Any]]:
         
         # Parse site information
         if current_section == 'site_info' and line.startswith('- '):
-            match = re.match(r'- ([^:]+):\s*(.+)', line)
+            # Handle both single-line and multi-line values
+            match = re.match(r'- ([^:]+):\s*(.*)', line)
             if match:
                 key, value = match.groups()
                 original_key = key.strip()
                 key = key.strip().lower().replace(' ', '_')
                 value = value.strip()
+                
+                # If value is empty, it might be on the next line(s)
+                if not value:
+                    # Look ahead for the value on subsequent lines
+                    for j in range(i + 1, len(lines)):
+                        next_line = lines[j].strip()
+                        # Stop if we hit another field or section
+                        if next_line.startswith('- ') or next_line.startswith('**'):
+                            break
+                        # Add this line to the value
+                        if next_line:
+                            value = next_line
+                            break
                 
                 print(f"DEBUG: Parsing site info - original_key='{original_key}', normalized_key='{key}', value='{value}'")
                 
