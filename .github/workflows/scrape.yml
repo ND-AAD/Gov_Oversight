@@ -19,12 +19,13 @@ on:
         default: ''
         type: string
 
-  # Also run on pushes to main for testing
+  # Also run on pushes to main for testing and when sites are added
   push:
     branches: [ main ]
     paths: 
       - 'backend/**'
       - '.github/workflows/scrape.yml'
+      - 'data/sites.json'
 
 env:
   PYTHON_VERSION: '3.10'
@@ -105,6 +106,13 @@ jobs:
           echo "Manual scrape triggered"
         fi
         
+        # Check if this is triggered by sites.json update (new site added)
+        if [ "${{ github.event_name }}" = "push" ] && echo "${{ github.event.head_commit.modified }}" | grep -q "data/sites.json"; then
+          SHOULD_SCRAPE="true"
+          SCRAPE_REASON="new_site_added"
+          echo "New site detected - triggering scrape"
+        fi
+        
         # Check last scrape time (if file exists)
         if [ -f "data/last_scrape.txt" ]; then
           LAST_SCRAPE=$(cat data/last_scrape.txt)
@@ -121,7 +129,7 @@ jobs:
           # Default cadence is 6 hours - could be made configurable via repository variables
           MIN_HOURS_BETWEEN_SCRAPES=${MIN_SCRAPE_INTERVAL_HOURS:-6}
           
-          if [ $HOURS_SINCE -lt $MIN_HOURS_BETWEEN_SCRAPES ] && [ "$SCRAPE_REASON" != "force_update" ]; then
+          if [ $HOURS_SINCE -lt $MIN_HOURS_BETWEEN_SCRAPES ] && [ "$SCRAPE_REASON" != "force_update" ] && [ "$SCRAPE_REASON" != "manual_trigger" ] && [ "$SCRAPE_REASON" != "new_site_added" ]; then
             SHOULD_SCRAPE="false"
             echo "Skipping scrape - too soon since last run ($HOURS_SINCE < $MIN_HOURS_BETWEEN_SCRAPES hours)"
           fi
