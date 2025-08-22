@@ -3,9 +3,6 @@
   "outputDirectory": "frontend/dist",
   "installCommand": "npm install",
   "functions": {
-    "api/test-connection.ts": {
-      "maxDuration": 10
-    },
     "api/add-site.ts": {
       "maxDuration": 30
     },
