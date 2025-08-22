@@ -1,97 +1,10 @@
 {
   "metadata": {
-    "last_updated": "2025-08-22T18:42:33.864Z",
+    "last_updated": "2025-08-22T18:56:31.907985",
     "total_sites": 1,
     "version": "1.0"
   },
   "sites": [
-    {
-      "id": "ramp_la",
-      "name": "RAMP LA",
-      "base_url": "https://www.rampla.org/s/profile?id=0016g00002GNPhQAAX",
-      "main_rfp_page_url": "https://www.rampla.org/s/profile?id=0016g00002GNPhQAAX",
-      "sample_rfp_url": "https://www.rampla.org/s/opportunity",
-      "field_mappings": [
-        {
-          "alias": "status",
-          "selector": "[data-field=\"status\"]",
-          "data_type": "text",
-          "training_value": "Withdrawn",
-          "confidence_score": 0,
-          "xpath": null,
-          "regex_pattern": null,
-          "fallback_selectors": [],
-          "last_validated": "2025-08-22T12:19:58.499578",
-          "validation_errors": [],
-          "expected_format": null,
-          "status": "working",
-          "consecutive_failures": 0
-        },
-        {
-          "alias": "posted",
-          "selector": "[data-field=\"posted\"]",
-          "data_type": "text",
-          "training_value": "6/2/2023",
-          "confidence_score": 0,
-          "xpath": null,
-          "regex_pattern": null,
-          "fallback_selectors": [],
-          "last_validated": "2025-08-22T12:19:58.499579",
-          "validation_errors": [],
-          "expected_format": null,
-          "status": "working",
-          "consecutive_failures": 0
-        },
-        {
-          "alias": "due_date",
-          "selector": "[data-field=\"due_date\"]",
-          "data_type": "text",
-          "training_value": "7/31/2024",
-          "confidence_score": 0,
-          "xpath": null,
-          "regex_pattern": null,
-          "fallback_selectors": [],
-          "last_validated": "2025-08-22T12:19:58.499580",
-          "validation_errors": [],
-          "expected_format": null,
-          "status": "working",
-          "consecutive_failures": 0
-        },
-        {
-          "alias": "organization",
-          "selector": "[data-field=\"organization\"]",
-          "data_type": "text",
-          "training_value": "LA 28",
-          "confidence_score": 0,
-          "xpath": null,
-          "regex_pattern": null,
-          "fallback_selectors": [],
-          "last_validated": "2025-08-22T12:19:58.499581",
-          "validation_errors": [],
-          "expected_format": null,
-          "status": "working",
-          "consecutive_failures": 0
-        }
-      ],
-      "status": "deleted",
-      "last_scrape": null,
-      "last_test": null,
-      "rfp_count": 0,
-      "test_results": null,
-      "description": "Added via GitHub issue on 2025-08-21",
-      "contact_info": null,
-      "terms_of_service_url": null,
-      "robots_txt_compliant": true,
-      "scraper_settings": {
-        "delay_between_requests": 2,
-        "timeout": 30,
-        "max_retries": 3,
-        "respect_robots_txt": true
-      },
-      "deleted_at": "2025-08-22T18:13:20.022Z",
-      "deletion_reason": "User requested removal via dashboard",
-      "last_updated": "2025-08-22T18:13:20.022Z"
-    },
     {
       "id": "ramp_la",
       "name": "RAMP LA",
@@ -108,10 +21,10 @@
           "xpath": null,
           "regex_pattern": null,
           "fallback_selectors": [],
-          "last_validated": "2025-08-22T18:42:33.864Z",
+          "last_validated": "2025-08-22T18:56:31.906023",
           "validation_errors": [],
           "expected_format": null,
-          "status": "untested",
+          "status": "working",
           "consecutive_failures": 0
         },
         {
@@ -123,10 +36,10 @@
           "xpath": null,
           "regex_pattern": null,
           "fallback_selectors": [],
-          "last_validated": "2025-08-22T18:42:33.864Z",
+          "last_validated": "2025-08-22T18:56:31.906025",
           "validation_errors": [],
           "expected_format": null,
-          "status": "untested",
+          "status": "working",
           "consecutive_failures": 0
         },
         {
@@ -138,10 +51,10 @@
           "xpath": null,
           "regex_pattern": null,
           "fallback_selectors": [],
-          "last_validated": "2025-08-22T18:42:33.864Z",
+          "last_validated": "2025-08-22T18:56:31.906026",
           "validation_errors": [],
           "expected_format": null,
-          "status": "untested",
+          "status": "working",
           "consecutive_failures": 0
         },
         {
@@ -153,10 +66,10 @@
           "xpath": null,
           "regex_pattern": null,
           "fallback_selectors": [],
-          "last_validated": "2025-08-22T18:42:33.864Z",
+          "last_validated": "2025-08-22T18:56:31.906027",
           "validation_errors": [],
           "expected_format": null,
-          "status": "untested",
+          "status": "working",
           "consecutive_failures": 0
         }
       ],
