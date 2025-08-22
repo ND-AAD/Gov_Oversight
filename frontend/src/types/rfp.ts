@@ -66,7 +66,7 @@ export interface SiteConfig {
     status: 'working' | 'degraded' | 'broken' | 'untested';
     consecutive_failures: number;
   }>;
-  status: 'active' | 'error' | 'testing' | 'disabled';
+  status: 'active' | 'error' | 'testing' | 'disabled' | 'deleted';
   last_scrape?: string;
   last_test?: string;
   rfp_count: number;
