@@ -231,7 +231,7 @@ def save_sites_json(data_dir: str, sites_data: Dict[str, Any]) -> None:
 
 
 def process_issue_for_site_addition(issue_number: int, issue_body: str, 
-                                  data_dir: str = None) -> Dict[str, Any]:
+                                  data_dir: str = None, use_location_binding: bool = False) -> Dict[str, Any]:
     """
     Process a single GitHub issue for site addition.
     

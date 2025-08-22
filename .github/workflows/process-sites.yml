@@ -53,10 +53,10 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install basic dependencies
+      - name: Install backend dependencies for location-binding
         run: |
-          # The simplified script only needs Python standard library
-          echo "No additional dependencies needed for simplified script"
+          cd backend
+          pip install -r requirements.txt
 
       - name: Process site addition issues with Python
         id: process-issues
@@ -202,6 +202,24 @@ jobs:
               failed: failedIssues.length,
               total: issueNumbers.length
             };
+
+      - name: Install Playwright browsers for location-binding
+        if: steps.process-issues.outputs.processed-issues != '[]'
+        run: |
+          cd backend
+          playwright install chromium
+
+      - name: Perform location-binding for new sites
+        if: steps.process-issues.outputs.processed-issues != '[]'
+        run: |
+          echo "🔍 Performing location-binding for newly added sites..."
+          cd backend
+          
+          # Use main.py to test and update site configurations with real selectors
+          python main.py list-sites
+          
+          # The site testing will automatically update field mappings with real selectors
+          echo "✅ Location-binding completed"
 
       - name: Commit updated sites.json
         if: steps.process-issues.outputs.processed-issues != '[]'

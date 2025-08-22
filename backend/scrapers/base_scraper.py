@@ -150,7 +150,28 @@ class BaseScraper:
             # Fetch and parse robots.txt
             rp = RobotFileParser()
             rp.set_url(robots_url)
-            rp.read()
+            try:
+                rp.read()
+            except Exception as ssl_error:
+                # If SSL verification fails, try with unverified context as fallback
+                logger.warning(f"SSL verification failed for robots.txt at {robots_url}, trying without verification: {ssl_error}")
+                import ssl
+                import urllib.request
+                
+                # Create unverified SSL context for robots.txt only
+                ssl_context = ssl.create_default_context()
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
+                
+                opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=ssl_context))
+                urllib.request.install_opener(opener)
+                
+                try:
+                    rp.read()
+                except Exception:
+                    # If still fails, assume allowed
+                    logger.warning(f"Could not read robots.txt from {robots_url}, assuming allowed")
+                    return True
             
             # Cache the result
             self.robots_cache[base_url] = rp

@@ -338,11 +338,15 @@ class RFPScraper:
         # Determine categories based on content
         categories = self._categorize_rfp(extracted_data)
         
+        # Extract posted_date from extracted_data, with fallback
+        posted_date = extracted_data.get("posted_date") or extracted_data.get("posted") or datetime.now().strftime("%Y-%m-%d")
+        
         rfp = RFP(
             id=rfp_id,
             title=extracted_data.get("title", "Unknown RFP"),
             url=url,
             source_site=site_config.id,
+            posted_date=posted_date,
             extracted_fields=extracted_data,
             detected_at=datetime.now(),
             content_hash=self._generate_content_hash(extracted_data),
