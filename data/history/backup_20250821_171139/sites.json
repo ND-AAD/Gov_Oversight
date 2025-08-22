@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2025-08-21T17:11:39.033636",
+    "last_updated": "2025-08-21T23:59:32.522434",
     "total_sites": 1,
     "version": "1.0"
   },
@@ -21,10 +21,10 @@
           "xpath": null,
           "regex_pattern": null,
           "fallback_selectors": [],
-          "last_validated": "2025-08-21T17:11:39.029615",
+          "last_validated": null,
           "validation_errors": [],
           "expected_format": null,
-          "status": "working",
+          "status": "untested",
           "consecutive_failures": 0
         },
         {
@@ -36,10 +36,10 @@
           "xpath": null,
           "regex_pattern": null,
           "fallback_selectors": [],
-          "last_validated": "2025-08-21T17:11:39.029616",
+          "last_validated": null,
           "validation_errors": [],
           "expected_format": null,
-          "status": "working",
+          "status": "untested",
           "consecutive_failures": 0
         },
         {
@@ -51,10 +51,10 @@
           "xpath": null,
           "regex_pattern": null,
           "fallback_selectors": [],
-          "last_validated": "2025-08-21T17:11:39.029616",
+          "last_validated": null,
           "validation_errors": [],
           "expected_format": null,
-          "status": "working",
+          "status": "untested",
           "consecutive_failures": 0
         },
         {
@@ -66,10 +66,10 @@
           "xpath": null,
           "regex_pattern": null,
           "fallback_selectors": [],
-          "last_validated": "2025-08-21T17:11:39.029617",
+          "last_validated": null,
           "validation_errors": [],
           "expected_format": null,
-          "status": "working",
+          "status": "untested",
           "consecutive_failures": 0
         }
       ],

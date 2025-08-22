@@ -264,10 +264,15 @@ class SiteConfig:
     
     def is_healthy(self) -> bool:
         """Check if the site configuration is working properly."""
-        if self.status != SiteStatus.ACTIVE:
+        # Allow TESTING sites to be scraped for validation
+        if self.status not in [SiteStatus.ACTIVE, SiteStatus.TESTING]:
             return False
         
-        # Check if field mappings are valid
+        # For TESTING sites, allow scraping to occur for validation
+        if self.status == SiteStatus.TESTING:
+            return True
+        
+        # For ACTIVE sites, check if field mappings are valid
         valid_mappings = sum(1 for fm in self.field_mappings if fm.is_valid())
         return valid_mappings >= len(self.field_mappings) * 0.8  # 80% success rate
     
