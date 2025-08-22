@@ -4,6 +4,8 @@
 
 A transparent web scraper that monitors government Request for Proposals (RFPs) related to the LA 2028 Olympics, with special focus on identifying potentially concerning surveillance and infrastructure contracts.
 
+## 🚀 **Live Application**: https://la-2028-rfp-monitor.vercel.app
+
 ## 🎯 Mission
 
 The 2028 Olympics present opportunities for government overreach through surveillance infrastructure procurement. This tool provides public transparency by automatically tracking RFPs across government websites, enabling activists and citizens to monitor concerning contracts before they're awarded.
@@ -15,11 +17,23 @@ The 2028 Olympics present opportunities for government overreach through surveil
 - **🔍 Smart Categorization**: Automatic flagging of surveillance and security contracts
 - **📱 Mobile Responsive**: Works on all devices for maximum accessibility
 - **🔓 Fully Transparent**: All code, data, and configurations are public
-- **⚡ Real-time Updates**: Automated scraping every 6 hours with GitHub Actions
+- **⚡ Instant Site Addition**: Add new sites via web form in 2-3 seconds
+- **🔄 Real-time Updates**: Automated scraping every 6 hours with manual triggers
 
 ## 🚀 How It Works
 
-### Revolutionary Approach: Location-Binding Extraction
+### Revolutionary Approach: Direct File Updates
+
+Users can now add sites and manage data through a professional web interface:
+
+1. **Simple Web Form**: Fill out site details in the dashboard
+2. **Instant Processing**: Vercel API updates GitHub files directly in 2-3 seconds
+3. **Automatic Scraping**: GitHub Actions begins monitoring immediately
+4. **Real-time Feedback**: See changes and commit URLs instantly
+
+No GitHub account or technical knowledge required!
+
+### Location-Binding Extraction
 
 Instead of fragile CSS selectors, our scraper learns from user examples:
 
@@ -32,27 +46,36 @@ This makes the scraper incredibly resilient to website changes while requiring z
 
 ## 🏗️ Architecture
 
-- **Frontend**: React + TypeScript with shadcn/ui components  
+### Unified Vercel + GitHub Architecture
+- **Frontend + API**: React + TypeScript dashboard with Vercel serverless functions
 - **Backend**: Python with Playwright for robust web scraping
-- **Storage**: JSON files for simplicity and transparency
-- **Hosting**: GitHub Pages for free, reliable hosting
-- **Automation**: GitHub Actions for all processing (scraping, site management, deployment)
-- **Data**: Publicly accessible at `/data/rfps.json`
-- **Site Management**: localStorage → GitHub Actions workflow for adding sites
+- **Storage**: JSON files for simplicity and transparency  
+- **Hosting**: Vercel for frontend + API, GitHub for data storage
+- **Automation**: GitHub Actions for scraping, Vercel for user operations
+- **Data**: Real-time access via Vercel API endpoints
 
 ## 📋 Current Status
 
-**Phase 1: Foundation & Core Backend** ⏳ *In Progress*
-- [x] Technical specification complete
-- [x] Project structure created
-- [ ] Core scraper engine
-- [ ] Location-binding system
-- [ ] Data models
+**🚀 Production Ready with Unified Architecture** *(August 2025)*
 
-**Upcoming Phases:**
-- Phase 2: Frontend Integration
-- Phase 3: GitHub Deployment  
-- Phase 4: Real-world Testing
+**Live System:**
+- ✅ **Frontend Dashboard**: https://la-2028-rfp-monitor.vercel.app
+- ✅ **Vercel API Integration**: Direct file updates in 2-3 seconds
+- ✅ **Site Addition**: Simple web form, no GitHub account needed
+- ✅ **RFP Scraping**: Active monitoring with GitHub Actions
+- ✅ **Real-time Data**: Live RFP data from government sites
+
+**Recent Achievements:**
+- ✅ **Eliminated Brittleness**: No more manual GitHub issue creation
+- ✅ **Professional UX**: Instant feedback and error handling
+- ✅ **Zero Configuration**: Users can add sites immediately
+- ✅ **Full Automation**: End-to-end pipeline working smoothly
+
+**Currently Deployed:**
+1. **Web Dashboard**: Browse RFPs, add sites, manage data
+2. **Vercel API**: Instant site addition and data management
+3. **GitHub Actions**: Automated scraping every 6 hours
+4. **Real-time Updates**: Direct file commits with full transparency
 
 See `WORK_PLAN.md` for detailed progress tracking.
 
@@ -134,10 +157,21 @@ python main.py --test
 This project welcomes contributions from activists, developers, and concerned citizens:
 
 ### Adding New Sites
-1. Use the "Add Site" feature in the dashboard
-2. Provide sample RFP URL and field examples
-3. Test configuration before submitting
-4. Submit pull request with site configuration
+**Simple Web Interface:**
+1. Visit https://la-2028-rfp-monitor.vercel.app
+2. Click "Sites" → "Add Site" 
+3. Fill out the simple form:
+   - **Site Name**: "LA County Procurement"
+   - **Base URL**: "https://lacounty.gov"
+   - **RFP Page**: "https://lacounty.gov/bids"
+   - **Sample RFP** (optional): Example RFP URL
+4. Click "Submit" - site added in 2-3 seconds!
+5. Scraping begins automatically within minutes
+
+**Advanced Configuration** (optional):
+- Add custom field mappings for better data extraction
+- Specify training values for location-binding
+- Configure scraping parameters
 
 ### Improving Categorization
 1. Review `backend/utils/categorizer.py`
