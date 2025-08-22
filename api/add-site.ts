@@ -13,27 +13,93 @@ interface SiteSubmission {
   }>;
 }
 
-function formatGitHubIssueBody(siteData: SiteSubmission): string {
-  const fieldMappingsText = siteData.field_mappings && siteData.field_mappings.length > 0
-    ? siteData.field_mappings
-        .map(fm => `- ${fm.alias.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())} → "${fm.sample_value}" (${fm.data_type})`)
-        .join('\n')
-    : '- Status → "Active" (text)\n- Posted Date → "2024-12-20" (date)\n- Contract Value → "$50,000" (currency)';
+function generateSiteId(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, '_')
+    .substring(0, 20);
+}
 
-  return `**Site Information:**
-- Name: ${siteData.name}
-- Base URL: ${siteData.base_url}
-- Main RFP Page: ${siteData.main_rfp_page_url}
-- Sample RFP URL: ${siteData.sample_rfp_url || 'N/A'}
+function createSiteConfig(siteData: SiteSubmission): any {
+  const siteId = generateSiteId(siteData.name);
+  
+  // Create default field mappings if none provided
+  const defaultFieldMappings = [
+    {
+      alias: "status",
+      selector: ".status, .rfp-status, [class*='status']",
+      data_type: "text",
+      training_value: "Active",
+      confidence_score: 0.0,
+      xpath: null,
+      regex_pattern: null,
+      fallback_selectors: [],
+      last_validated: new Date().toISOString(),
+      validation_errors: [],
+      expected_format: null,
+      status: "untested",
+      consecutive_failures: 0
+    },
+    {
+      alias: "posted_date",
+      selector: ".posted, .date-posted, [class*='posted'], [class*='date']",
+      data_type: "date",
+      training_value: "2024-12-20",
+      confidence_score: 0.0,
+      xpath: null,
+      regex_pattern: null,
+      fallback_selectors: [],
+      last_validated: new Date().toISOString(),
+      validation_errors: [],
+      expected_format: null,
+      status: "untested",
+      consecutive_failures: 0
+    }
+  ];
 
-**Field Mappings:**
-${fieldMappingsText}
+  // Convert user field mappings to site config format
+  const fieldMappings = siteData.field_mappings && siteData.field_mappings.length > 0
+    ? siteData.field_mappings.map(fm => ({
+        alias: fm.alias,
+        selector: `[data-field="${fm.alias}"], .${fm.alias}, #${fm.alias}`,
+        data_type: fm.data_type,
+        training_value: fm.sample_value,
+        confidence_score: 0.0,
+        xpath: null,
+        regex_pattern: null,
+        fallback_selectors: [],
+        last_validated: new Date().toISOString(),
+        validation_errors: [],
+        expected_format: null,
+        status: "untested",
+        consecutive_failures: 0
+      }))
+    : defaultFieldMappings;
 
-**Description:**
-${siteData.description || 'Added via web form submission'}
-
----
-*Submitted via LA 2028 RFP Monitor web interface*`;
+  return {
+    id: siteId,
+    name: siteData.name,
+    base_url: siteData.base_url,
+    main_rfp_page_url: siteData.main_rfp_page_url || siteData.base_url,
+    sample_rfp_url: siteData.sample_rfp_url || "",
+    field_mappings: fieldMappings,
+    status: "testing",
+    last_scrape: null,
+    last_test: null,
+    rfp_count: 0,
+    test_results: null,
+    description: siteData.description || "Added via Vercel API",
+    contact_info: null,
+    terms_of_service_url: null,
+    robots_txt_compliant: true,
+    scraper_settings: {
+      delay_between_requests: 2.0,
+      timeout: 30,
+      max_retries: 3,
+      respect_robots_txt: true
+    }
+  };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -75,7 +141,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // Create GitHub issue via API
     const githubToken = process.env.GITHUB_TOKEN;
     const githubRepo = process.env.GITHUB_REPOSITORY || 'your-username/Gov_Oversight';
 
@@ -85,11 +150,51 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    const issueTitle = `Add Site: ${siteData.name}`;
-    const issueBody = formatGitHubIssueBody(siteData);
+    // Get current sites.json file
+    const sitesUrl = `https://api.github.com/repos/${githubRepo}/contents/data/sites.json`;
+    const getResponse = await fetch(sitesUrl, {
+      headers: {
+        'Authorization': `Bearer ${githubToken}`,
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'LA-2028-RFP-Monitor/1.0'
+      }
+    });
 
-    const githubResponse = await fetch(`https://api.github.com/repos/${githubRepo}/issues`, {
-      method: 'POST',
+    if (!getResponse.ok) {
+      return res.status(404).json({ error: 'Sites configuration not found' });
+    }
+
+    const fileData = await getResponse.json();
+    const fileSha = fileData.sha;
+    const content = Buffer.from(fileData.content, 'base64').toString('utf-8');
+    const sitesData = JSON.parse(content);
+
+    // Create new site configuration
+    const newSite = createSiteConfig(siteData);
+
+    // Check if site already exists
+    const existingSiteIndex = sitesData.sites.findIndex((site: any) => 
+      site.id === newSite.id || site.name === newSite.name || site.base_url === newSite.base_url
+    );
+
+    if (existingSiteIndex !== -1) {
+      return res.status(409).json({ 
+        error: 'Site already exists with this name or URL',
+        existing_site: sitesData.sites[existingSiteIndex]
+      });
+    }
+
+    // Add new site to the list
+    sitesData.sites.push(newSite);
+    sitesData.metadata.last_updated = new Date().toISOString();
+    sitesData.metadata.total_sites = sitesData.sites.filter((site: any) => site.status !== 'deleted').length;
+
+    // Commit updated file to GitHub
+    const updatedContent = JSON.stringify(sitesData, null, 2);
+    const encodedContent = Buffer.from(updatedContent).toString('base64');
+
+    const putResponse = await fetch(sitesUrl, {
+      method: 'PUT',
       headers: {
         'Authorization': `Bearer ${githubToken}`,
         'Content-Type': 'application/json',
@@ -97,30 +202,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         'User-Agent': 'LA-2028-RFP-Monitor/1.0'
       },
       body: JSON.stringify({
-        title: issueTitle,
-        body: issueBody,
-        labels: ['site-addition']
+        message: `Add new site: ${newSite.name} (via Vercel API)`,
+        content: encodedContent,
+        sha: fileSha
       })
     });
 
-    if (!githubResponse.ok) {
-      const errorData = await githubResponse.text();
-      console.error('GitHub API error:', errorData);
+    if (!putResponse.ok) {
+      const errorData = await putResponse.text();
       return res.status(500).json({ 
-        error: 'Failed to create GitHub issue',
+        error: 'Failed to add site to GitHub',
         details: errorData
       });
     }
 
-    const issue = await githubResponse.json();
+    const commitResult = await putResponse.json();
 
     // Success response
     return res.status(200).json({
       success: true,
-      message: `Site "${siteData.name}" has been submitted for processing`,
-      github_issue_url: issue.html_url,
-      github_issue_number: issue.number,
-      estimated_processing_time: '5-10 minutes'
+      message: `Site "${newSite.name}" has been added successfully`,
+      site: newSite,
+      commit_url: commitResult.commit.html_url,
+      next_steps: [
+        "Site will be automatically scraped within 6 hours",
+        "You can trigger manual scraping via the dashboard",
+        "Check the site status and configure field mappings if needed"
+      ]
     });
 
   } catch (error) {
