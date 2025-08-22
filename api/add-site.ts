@@ -172,9 +172,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Create new site configuration
     const newSite = createSiteConfig(siteData);
 
-    // Check if site already exists
+    // Check if site already exists (excluding deleted sites)
     const existingSiteIndex = sitesData.sites.findIndex((site: any) => 
-      site.id === newSite.id || site.name === newSite.name || site.base_url === newSite.base_url
+      site.status !== 'deleted' && 
+      (site.id === newSite.id || site.name === newSite.name || site.base_url === newSite.base_url)
     );
 
     if (existingSiteIndex !== -1) {
