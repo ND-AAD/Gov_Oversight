@@ -1,5 +1,28 @@
 {
   "buildCommand": "cd frontend && npm install && npm run build:vercel",
   "outputDirectory": "frontend/dist",
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "functions": {
+    "api/test-connection.ts": {
+      "maxDuration": 10
+    },
+    "api/add-site.ts": {
+      "maxDuration": 30
+    },
+    "api/rfps.ts": {
+      "maxDuration": 15
+    },
+    "api/sites.ts": {
+      "maxDuration": 15
+    },
+    "api/stats.ts": {
+      "maxDuration": 20
+    },
+    "api/system/health.ts": {
+      "maxDuration": 10
+    },
+    "api/system/trigger-scraping.ts": {
+      "maxDuration": 30
+    }
+  }
 }

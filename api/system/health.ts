@@ -18,7 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const githubToken = process.env.GITHUB_TOKEN;
     const githubRepo = process.env.GITHUB_REPOSITORY || 'your-username/Gov_Oversight';
 
-    const health = {
+    const health: any = {
       status: 'healthy',
       timestamp: new Date().toISOString(),
       version: '2.0.0-vercel',
