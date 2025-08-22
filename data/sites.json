@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "last_updated": "2025-08-22T12:19:58.501115",
-    "total_sites": 1,
+    "last_updated": "2025-08-22T18:13:20.022Z",
+    "total_sites": 0,
     "version": "1.0"
   },
   "sites": [
@@ -17,7 +17,7 @@
           "selector": "[data-field=\"status\"]",
           "data_type": "text",
           "training_value": "Withdrawn",
-          "confidence_score": 0.0,
+          "confidence_score": 0,
           "xpath": null,
           "regex_pattern": null,
           "fallback_selectors": [],
@@ -32,7 +32,7 @@
           "selector": "[data-field=\"posted\"]",
           "data_type": "text",
           "training_value": "6/2/2023",
-          "confidence_score": 0.0,
+          "confidence_score": 0,
           "xpath": null,
           "regex_pattern": null,
           "fallback_selectors": [],
@@ -47,7 +47,7 @@
           "selector": "[data-field=\"due_date\"]",
           "data_type": "text",
           "training_value": "7/31/2024",
-          "confidence_score": 0.0,
+          "confidence_score": 0,
           "xpath": null,
           "regex_pattern": null,
           "fallback_selectors": [],
@@ -62,7 +62,7 @@
           "selector": "[data-field=\"organization\"]",
           "data_type": "text",
           "training_value": "LA 28",
-          "confidence_score": 0.0,
+          "confidence_score": 0,
           "xpath": null,
           "regex_pattern": null,
           "fallback_selectors": [],
@@ -73,7 +73,7 @@
           "consecutive_failures": 0
         }
       ],
-      "status": "testing",
+      "status": "deleted",
       "last_scrape": null,
       "last_test": null,
       "rfp_count": 0,
@@ -83,11 +83,14 @@
       "terms_of_service_url": null,
       "robots_txt_compliant": true,
       "scraper_settings": {
-        "delay_between_requests": 2.0,
+        "delay_between_requests": 2,
         "timeout": 30,
         "max_retries": 3,
         "respect_robots_txt": true
-      }
+      },
+      "deleted_at": "2025-08-22T18:13:20.022Z",
+      "deletion_reason": "User requested removal via dashboard",
+      "last_updated": "2025-08-22T18:13:20.022Z"
     }
   ]
 }
