@@ -113,7 +113,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (include_inactive !== 'true') {
       filteredSites = filteredSites.filter(site => 
-        site.status !== 'inactive' && site.status !== 'disabled'
+        site.status !== 'inactive' && site.status !== 'disabled' && site.status !== 'deleted'
       );
     }
 

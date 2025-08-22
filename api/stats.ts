@@ -74,7 +74,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const rfps = rfpsData.rfps || [];
-    const sites = sitesData.sites || [];
+    const sites = (sitesData.sites || []).filter((site: any) => site.status !== 'deleted');
 
     // Calculate statistics
     const oneWeekAgo = new Date();

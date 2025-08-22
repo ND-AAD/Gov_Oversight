@@ -1,45 +1,73 @@
-# GitHub Actions Workflow: Process Site Addition Requests
+# GitHub Actions Workflow: Process New Sites and Run Scraping
 # 
-# Triggered when GitHub issues are created with 'site-addition' label
-# Automatically validates and adds new sites to the monitoring system
+# Triggered when sites.json is updated (by Vercel API direct file updates)
+# Automatically runs scraping for newly added sites
 
-name: Process Site Additions
+name: Process Sites and Scraping
 
 on:
-  issues:
-    types: [labeled]
+  push:
+    paths:
+      - 'data/sites.json'
   schedule:
-    # Fallback: every 2 hours, but only if there are pending issues
-    - cron: '0 */2 * * *'
+    # Regular scraping every 6 hours
+    - cron: '0 */6 * * *'
   workflow_dispatch:
-    # Manual trigger for urgent site additions
+    # Manual trigger for immediate scraping
 
 jobs:
-  check-pending:
+  detect-changes:
     runs-on: ubuntu-latest
-    if: github.event_name == 'schedule'
+    if: github.event_name == 'push'
     outputs:
-      has-pending: ${{ steps.check.outputs.has-pending }}
+      new-sites: ${{ steps.check.outputs.new-sites }}
+      has-new-sites: ${{ steps.check.outputs.has-new-sites }}
     steps:
-      - name: Check for pending site addition issues
-        id: check
-        uses: actions/github-script@v7
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          script: |
-            const issues = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: 'site-addition',
-              state: 'open'
-            });
-            const hasPending = issues.data.length > 0;
-            core.setOutput('has-pending', hasPending);
-            console.log(`Found ${issues.data.length} pending site addition issues`);
+          fetch-depth: 2
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-  process-sites-immediate:
+      - name: Check for new sites
+        id: check
+        run: |
+          echo "Checking for new sites in sites.json..."
+          
+          # Get the current sites.json
+          CURRENT_SITES=$(jq -r '.sites[].id' data/sites.json | wc -l)
+          
+          # Get the previous sites.json (if it exists)
+          if git show HEAD~1:data/sites.json > /dev/null 2>&1; then
+            PREVIOUS_SITES=$(git show HEAD~1:data/sites.json | jq -r '.sites[].id' | wc -l)
+          else
+            PREVIOUS_SITES=0
+          fi
+          
+          if [ "$CURRENT_SITES" -gt "$PREVIOUS_SITES" ]; then
+            echo "has-new-sites=true" >> $GITHUB_OUTPUT
+            echo "New sites detected: $CURRENT_SITES sites (was $PREVIOUS_SITES)"
+            
+            # Get the new site IDs
+            if [ "$PREVIOUS_SITES" -gt 0 ]; then
+              git show HEAD~1:data/sites.json | jq -r '.sites[].id' > /tmp/previous_sites.txt
+              jq -r '.sites[].id' data/sites.json > /tmp/current_sites.txt
+              NEW_SITES=$(comm -23 /tmp/current_sites.txt /tmp/previous_sites.txt | tr '\n' ',' | sed 's/,$//')
+            else
+              NEW_SITES=$(jq -r '.sites[].id' data/sites.json | tr '\n' ',' | sed 's/,$//')
+            fi
+            
+            echo "new-sites=$NEW_SITES" >> $GITHUB_OUTPUT
+            echo "New site IDs: $NEW_SITES"
+          else
+            echo "has-new-sites=false" >> $GITHUB_OUTPUT
+            echo "No new sites detected"
+          fi
+
+  scrape-rfps:
     runs-on: ubuntu-latest
-    # Run immediately for issues with site-addition label or manual triggers
-    if: (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'site-addition')) || github.event_name == 'workflow_dispatch'
+    needs: [detect-changes]
+    if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.has-new-sites == 'true')
     
     steps:
       - name: Checkout repository
@@ -53,246 +81,91 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install backend dependencies for location-binding
+      - name: Install backend dependencies
         run: |
           cd backend
           pip install -r requirements.txt
 
-      - name: Process site addition issues with Python
-        id: process-issues
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { execSync } = require('child_process');
-            
-            let issueNumbers = [];
-            let processedIssues = [];
-            let failedIssues = [];
-            
-            if (context.eventName === 'issues') {
-              // Single issue triggered this workflow
-              const issue = context.payload.issue;
-              if (issue.labels.some(label => label.name === 'site-addition')) {
-                issueNumbers = [issue.number];
-              }
-            } else {
-              // Manual run - get all open site-addition issues
-              const issues = await github.rest.issues.listForRepo({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                labels: 'site-addition',
-                state: 'open'
-              });
-              issueNumbers = issues.data.map(issue => issue.number);
-            }
-            
-            console.log(`Processing ${issueNumbers.length} site addition issues: ${issueNumbers.join(', ')}`);
-            
-            for (const issueNumber of issueNumbers) {
-              try {
-                console.log(`Processing issue #${issueNumber}`);
-                
-                // Get issue details
-                const issueResponse = await github.rest.issues.get({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: issueNumber
-                });
-                
-                const issueBody = issueResponse.data.body || '';
-                
-                // Process the issue with Python script
-                try {
-                  const result = execSync(
-                    `cd backend && python3 process_github_issues_simple.py`,
-                    {
-                      env: {
-                        ...process.env,
-                        GITHUB_ISSUE_NUMBER: issueNumber.toString(),
-                        GITHUB_ISSUE_BODY: issueBody
-                      },
-                      encoding: 'utf8'
-                    }
-                  );
-                  
-                  console.log(`Python script output: ${result}`);
-                  
-                  // Add success comment
-                  const comment = `✅ **Site Addition Successful**
-                  
-                  Site has been successfully added to the monitoring system.
-                  
-                  **Processing Details:**
-                  ${result}
-                  
-                  **Next Steps:**
-                  - Site will be included in next scheduled scraping run (every 6 hours)
-                  - You can monitor the site status in the dashboard
-                  - Field mappings will be tested automatically
-                  
-                  *Processed automatically by GitHub Actions at ${new Date().toISOString()}*`;
-                  
-                  await github.rest.issues.createComment({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    issue_number: issueNumber,
-                    body: comment
-                  });
-                  
-                  // Close issue with completed label
-                  await github.rest.issues.update({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    issue_number: issueNumber,
-                    state: 'closed',
-                    labels: ['site-addition', 'completed']
-                  });
-                  
-                  processedIssues.push(issueNumber);
-                  console.log(`✅ Successfully processed issue #${issueNumber}`);
-                  
-                } catch (pythonError) {
-                  console.error(`Python script failed for issue #${issueNumber}:`, pythonError.message);
-                  console.error(`Python script stderr:`, pythonError.stderr);
-                  console.error(`Python script stdout:`, pythonError.stdout);
-                  
-                  // Add error comment
-                  const errorComment = `❌ **Site Addition Failed**
-                  
-                  Error processing site addition: ${pythonError.message}
-                  
-                  **Common Issues:**
-                  - Check that all required fields are present (Name, Base URL, RFP Page URL)
-                  - Ensure URLs are valid and accessible
-                  - Verify field mapping format: Field Name → "Example Value" (data_type)
-                  
-                  Please fix the issue format and try again.
-                  
-                  *Processed automatically by GitHub Actions at ${new Date().toISOString()}*`;
-                  
-                  await github.rest.issues.createComment({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    issue_number: issueNumber,
-                    body: errorComment
-                  });
-                  
-                  // Label as failed
-                  await github.rest.issues.update({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    issue_number: issueNumber,
-                    labels: ['site-addition', 'failed']
-                  });
-                  
-                  failedIssues.push(issueNumber);
-                }
-                
-              } catch (error) {
-                console.error(`❌ Error processing issue #${issueNumber}:`, error.message);
-                failedIssues.push(issueNumber);
-              }
-            }
-            
-            core.setOutput('processed-issues', JSON.stringify(processedIssues));
-            core.setOutput('failed-issues', JSON.stringify(failedIssues));
-            
-            return {
-              processed: processedIssues.length,
-              failed: failedIssues.length,
-              total: issueNumbers.length
-            };
-
-      - name: Install Playwright browsers for location-binding
-        if: steps.process-issues.outputs.processed-issues != '[]'
+      - name: Install Playwright browsers
         run: |
           cd backend
           playwright install chromium
 
-      - name: Perform location-binding for new sites
-        if: steps.process-issues.outputs.processed-issues != '[]'
+      - name: Run RFP scraping
+        id: scrape
         run: |
-          echo "🔍 Performing location-binding for newly added sites..."
           cd backend
+          echo "🚀 Starting RFP scraping..."
           
-          # Use main.py to test and update site configurations with real selectors
-          python main.py list-sites
+          # Run the scraper
+          python main.py scrape --output ../data/rfps.json 2>&1 | tee scrape_output.log
           
-          # The site testing will automatically update field mappings with real selectors
-          echo "✅ Location-binding completed"
+          # Get statistics
+          SITES_COUNT=$(python main.py list-sites 2>/dev/null | grep -c "Site:" || echo "0")
+          RFPS_COUNT=$(jq -r '.rfps | length' ../data/rfps.json 2>/dev/null || echo "0")
+          
+          echo "sites-count=$SITES_COUNT" >> $GITHUB_OUTPUT
+          echo "rfps-count=$RFPS_COUNT" >> $GITHUB_OUTPUT
+          
+          echo "✅ Scraping completed: $RFPS_COUNT RFPs from $SITES_COUNT sites"
 
-      - name: Commit updated sites.json
-        if: steps.process-issues.outputs.processed-issues != '[]'
+      - name: Update statistics
+        run: |
+          cd backend
+          echo "📊 Updating statistics..."
+          python -c "
+          import json
+          from datetime import datetime
+          
+          # Update stats.json
+          stats = {
+              'last_scrape': datetime.now().isoformat(),
+              'total_sites': ${{ steps.scrape.outputs.sites-count }},
+              'total_rfps': ${{ steps.scrape.outputs.rfps-count }},
+              'last_updated': datetime.now().isoformat()
+          }
+          
+          with open('../data/stats.json', 'w') as f:
+              json.dump(stats, f, indent=2)
+          
+          print('✅ Statistics updated')
+          "
+
+      - name: Commit updated data
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           
           # Check if there are changes to commit
-          if git diff --quiet data/sites.json; then
-            echo "No changes to sites.json"
+          if git diff --quiet data/; then
+            echo "No changes to commit"
           else
-            git add data/sites.json
-            git commit -m "🏛️ Add new sites from GitHub issues
-
-            Processed issues: ${{ steps.process-issues.outputs.processed-issues }}
+            git add data/
             
-            🤖 Generated with GitHub Actions"
+            if [ "${{ needs.detect-changes.outputs.has-new-sites }}" == "true" ]; then
+              COMMIT_MSG="🚀 Scrape RFPs for newly added sites: ${{ needs.detect-changes.outputs.new-sites }}
+
+              Found ${{ steps.scrape.outputs.rfps-count }} RFPs from ${{ steps.scrape.outputs.sites-count }} sites
+              
+              🤖 Generated with GitHub Actions"
+            else
+              COMMIT_MSG="🔄 Scheduled RFP scraping update
+
+              Found ${{ steps.scrape.outputs.rfps-count }} RFPs from ${{ steps.scrape.outputs.sites-count }} sites
+              
+              🤖 Generated with GitHub Actions"
+            fi
+            
+            git commit -m "$COMMIT_MSG"
             git push
-            echo "✅ Successfully committed updated sites.json"
+            echo "✅ Successfully committed updated data"
           fi
 
       - name: Summary
-        if: steps.process-issues.outputs.processed-issues != '[]' || steps.process-issues.outputs.failed-issues != '[]'
         run: |
-          echo "🎯 Site addition processing complete"
-          echo "Successfully processed: ${{ steps.process-issues.outputs.processed-issues }}"
-          echo "Failed to process: ${{ steps.process-issues.outputs.failed-issues }}"
-
-  process-sites-scheduled:
-    runs-on: ubuntu-latest
-    # Run for scheduled events only if there are pending issues
-    needs: [check-pending]
-    if: github.event_name == 'schedule' && needs.check-pending.outputs.has-pending == 'true'
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
-      - name: Install dependencies
-        run: |
-          pip install requests
-
-      - name: Get site addition issues
-        id: get-issues
-        uses: actions/github-script@v7
-        with:
-          script: |
-            // Scheduled run - get all open site-addition issues
-            const issues = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: 'site-addition',
-              state: 'open'
-            });
-            const issueNumbers = issues.data.map(issue => issue.number);
-            
-            core.setOutput('issue-numbers', JSON.stringify(issueNumbers));
-            console.log(`Processing ${issueNumbers.length} site addition issues: ${issueNumbers.join(', ')}`);
-
-      - name: Process site addition issues
-        if: steps.get-issues.outputs.issue-numbers != '[]'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-        run: |
-          echo "Processing scheduled site addition issues..."
-          echo "Note: This is a simplified version. Use the immediate processor for full functionality."
-          echo "Issues to process: ${{ steps.get-issues.outputs.issue-numbers }}"
+          echo "🎯 RFP scraping complete"
+          echo "Sites processed: ${{ steps.scrape.outputs.sites-count }}"
+          echo "RFPs found: ${{ steps.scrape.outputs.rfps-count }}"
+          if [ "${{ needs.detect-changes.outputs.has-new-sites }}" == "true" ]; then
+            echo "New sites added: ${{ needs.detect-changes.outputs.new-sites }}"
+          fi

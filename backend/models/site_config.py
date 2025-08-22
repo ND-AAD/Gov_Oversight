@@ -133,7 +133,7 @@ class FieldMapping:
         
         # Convert ISO string back to datetime
         if data.get('last_validated'):
-            data['last_validated'] = datetime.fromisoformat(data['last_validated'])
+            data['last_validated'] = datetime.fromisoformat(data['last_validated'].replace('Z', '+00:00'))
         
         return cls(**data)
 
@@ -359,10 +359,10 @@ class SiteConfig:
             data['status'] = SiteStatus(data['status'])
         
         if data.get('last_scrape'):
-            data['last_scrape'] = datetime.fromisoformat(data['last_scrape'])
+            data['last_scrape'] = datetime.fromisoformat(data['last_scrape'].replace('Z', '+00:00'))
         
         if data.get('last_test'):
-            data['last_test'] = datetime.fromisoformat(data['last_test'])
+            data['last_test'] = datetime.fromisoformat(data['last_test'].replace('Z', '+00:00'))
         
         # Convert field mappings
         if 'field_mappings' in data:
@@ -373,7 +373,7 @@ class SiteConfig:
         # Convert test results
         if data.get('test_results'):
             test_data = data['test_results']
-            test_data['timestamp'] = datetime.fromisoformat(test_data['timestamp'])
+            test_data['timestamp'] = datetime.fromisoformat(test_data['timestamp'].replace('Z', '+00:00'))
             data['test_results'] = TestResult(**test_data)
         
         return cls(**data)
