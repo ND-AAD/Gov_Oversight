@@ -461,7 +461,7 @@ export function SiteManagement({ onNavigate }: SiteManagementProps) {
             <Card>
               <CardContent className="p-4">
                 <div className="text-center">
-                  <div className="text-2xl font-bold">{sites.length}</div>
+                  <div className="text-2xl font-bold">{sites.filter(s => s.status !== 'deleted').length}</div>
                   <p className="text-sm text-muted-foreground">Total Sites</p>
                 </div>
               </CardContent>
@@ -522,7 +522,7 @@ export function SiteManagement({ onNavigate }: SiteManagementProps) {
             </Card>
           ) : (
             <div className="grid gap-4">
-              {sites.map((site) => (
+              {sites.filter(site => site.status !== 'deleted').map((site) => (
                 <Card key={site.id}>
                   <CardHeader>
                     <div className="flex items-center justify-between">
