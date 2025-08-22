@@ -4,9 +4,9 @@
   "description": "LA 2028 RFP Monitor - Government Procurement Transparency Tool",
   "scripts": {
     "dev": "cd frontend && npm run dev",
-    "build": "cd frontend && npm ci && npm run build:vercel",
+    "build": "cd frontend && npm install && npm run build:vercel",
     "start": "cd frontend && npm run preview",
-    "vercel-build": "cd frontend && npm ci && npm run build:vercel",
+    "vercel-build": "cd frontend && npm install && npm run build:vercel",
     "backend:dev": "cd backend && python main.py --help",
     "backend:test": "cd backend && python test_runner.py",
     "backend:scrape": "cd backend && python main.py scrape"
