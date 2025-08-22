@@ -4,11 +4,20 @@
   "description": "LA 2028 RFP Monitor - Government Procurement Transparency Tool",
   "scripts": {
     "dev": "cd frontend && npm run dev",
-    "build": "cd frontend && npm run build",
-    "deploy": "echo 'Deployment handled by GitHub Actions'"
+    "build": "cd frontend && npm ci && npm run build:vercel",
+    "start": "cd frontend && npm run preview",
+    "vercel-build": "cd frontend && npm ci && npm run build:vercel",
+    "backend:dev": "cd backend && python main.py --help",
+    "backend:test": "cd backend && python test_runner.py",
+    "backend:scrape": "cd backend && python main.py scrape"
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@vercel/node": "^3.0.0",
+    "typescript": "^5.0.0"
   },
   "repository": {
     "type": "git",
