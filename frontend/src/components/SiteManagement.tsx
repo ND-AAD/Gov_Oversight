@@ -20,7 +20,7 @@ import {
   TestTube
 } from 'lucide-react';
 import type { SiteConfig } from '../types/rfp';
-import { createSite, testSite, softDeleteSite, autoLoadSites } from '../utils/api';
+import { createSite, getSites, deleteSite, updateSite, triggerScraping } from '../utils/vercel-api';
 import { toast } from 'sonner';
 
 interface SiteManagementProps {
@@ -66,8 +66,8 @@ export function SiteManagement({ onNavigate }: SiteManagementProps) {
   const loadSites = async () => {
     try {
       setLoading(true);
-      const sitesData = await autoLoadSites();
-      setSites(sitesData);
+      const response = await getSites();
+      setSites(response.sites);
     } catch (error) {
       console.error('Failed to load sites:', error);
       toast.error('Failed to load sites');
@@ -81,8 +81,6 @@ export function SiteManagement({ onNavigate }: SiteManagementProps) {
       toast.error('Please fill in required fields');
       return;
     }
-
-    // Site creation now handles both API and GitHub modes automatically
 
     try {
       // Prepare field mappings if in advanced mode
@@ -103,11 +101,8 @@ export function SiteManagement({ onNavigate }: SiteManagementProps) {
         field_mappings: fieldMappings
       };
 
-      await createSite(siteData);
+      const result = await createSite(siteData);
 
-      // Reload sites
-      await loadSites();
-      
       // Reset form
       setNewSite({
         name: '',
@@ -121,28 +116,31 @@ export function SiteManagement({ onNavigate }: SiteManagementProps) {
       
       setIsAddSiteOpen(false);
       
-      // Different messages for different modes
-      const isStaticMode = window.location.hostname.includes('github.io');
-      if (isStaticMode) {
-        toast.success(`Site "${newSite.name}" queued for addition. It will be processed on the next scraping run.`);
+      // Show success message with GitHub issue link
+      if (result.github_issue_url) {
+        toast.success(`Site "${siteData.name}" submitted successfully!`, {
+          description: `Processing time: ${result.estimated_processing_time}. View progress: GitHub Issue #${result.github_issue_number}`,
+          duration: 8000,
+          action: {
+            label: 'View Issue',
+            onClick: () => window.open(result.github_issue_url, '_blank')
+          }
+        });
       } else {
-        toast.success(`Site "${newSite.name}" added successfully`);
+        toast.success(result.message);
       }
+
+      // Reload sites after a short delay to show any immediate updates
+      setTimeout(() => loadSites(), 2000);
+      
     } catch (error) {
       console.error('Failed to add site:', error);
       
-      // Show more helpful error message for GitHub-only mode
-      if (error instanceof Error && error.message.includes('GitHub issue')) {
-        toast.error('Site queued for processing', {
-          description: 'To complete: Create a GitHub issue with the details logged in browser console, or wait for automated processing.',
-          duration: 8000
-        });
-      } else {
-        toast.error('Site request saved locally', {
-          description: 'The site addition will be processed when a GitHub issue is created manually or automatically.',
-          duration: 6000
-        });
-      }
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      toast.error('Failed to submit site', {
+        description: errorMessage,
+        duration: 6000
+      });
     }
   };
 
@@ -160,29 +158,44 @@ export function SiteManagement({ onNavigate }: SiteManagementProps) {
     if (!confirmed) return;
     
     try {
-      await softDeleteSite(id, name);
+      const result = await deleteSite(id, true, 'User requested removal via dashboard');
       await loadSites();
-      toast.success(`Site "${name}" has been removed from monitoring (data preserved)`);
+      
+      toast.success(result.message, {
+        duration: 5000,
+        action: result.commit_url ? {
+          label: 'View Changes',
+          onClick: () => window.open(result.commit_url, '_blank')
+        } : undefined
+      });
     } catch (error) {
-      console.error('Soft delete process:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to remove site');
+      console.error('Delete site error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to remove site';
+      toast.error(errorMessage);
     }
   };
 
   const handleTestSite = async (site: SiteConfig) => {
     try {
-      toast.info(`Testing scraper for ${site.name}...`);
+      toast.info(`Triggering test scrape for ${site.name}...`);
       
-      const result = await testSite(site.id);
+      const result = await triggerScraping({
+        specific_sites: [site.id],
+        reason: `Test scrape for ${site.name} via dashboard`
+      });
       
-      if (result.success) {
-        toast.success(`✅ Scraper test completed for ${site.name}`);
-      } else {
-        toast.error(`❌ Scraper test failed for ${site.name}`);
-      }
+      toast.success(result.message, {
+        duration: 8000,
+        description: `${result.details.estimated_duration} estimated. ${result.monitoring_tip}`,
+        action: result.workflow_run_url ? {
+          label: 'View Progress',
+          onClick: () => window.open(result.workflow_run_url, '_blank')
+        } : undefined
+      });
     } catch (error) {
       console.error('Failed to test site:', error);
-      toast.error(`Failed to test ${site.name}`);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to trigger test scrape';
+      toast.error(errorMessage);
     }
   };
 

@@ -1,15 +1,9 @@
 {
   "version": 2,
   "name": "la-2028-rfp-monitor",
-  "builds": [
-    {
-      "src": "frontend/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    }
-  ],
+  "buildCommand": "npm run vercel-build",
+  "outputDirectory": "frontend/dist",
+  "installCommand": "npm install && cd frontend && npm install",
   "routes": [
     {
       "src": "/api/(.*)",
@@ -25,6 +19,12 @@
     }
   ],
   "functions": {
+    "api/hello.ts": {
+      "maxDuration": 5
+    },
+    "api/test-connection.ts": {
+      "maxDuration": 10
+    },
     "api/add-site.ts": {
       "maxDuration": 30
     },
@@ -36,9 +36,6 @@
     },
     "api/stats.ts": {
       "maxDuration": 20
-    },
-    "api/test-connection.ts": {
-      "maxDuration": 10
     }
   },
   "env": {

@@ -14,7 +14,7 @@ import { Separator } from './ui/separator';
 
 import { Grid, List, Globe, Plus, ArrowUpDown, Settings, Trash2, Clock } from 'lucide-react';
 import { toast } from 'sonner';
-import { autoLoadRFPs, createSite } from '../utils/api';
+import { getRFPs, createSite, toggleIgnoreRFP, toggleStarRFP, getIgnoredRFPs, getStarredRFPs } from '../utils/vercel-api';
 import { checkGitHubActionsStatus, getProcessingStatusMessage } from '../utils/github-status';
 
 interface DashboardProps {
@@ -48,14 +48,10 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     message: string;
   }>({ isProcessing: false, message: '' });
   const [ignoredRFPIds, setIgnoredRFPIds] = useState<Set<string>>(() => {
-    // Load ignored RFPs from localStorage on startup
-    const saved = localStorage.getItem('ignored_rfp_ids');
-    return saved ? new Set(JSON.parse(saved)) : new Set();
+    return new Set(getIgnoredRFPs());
   });
   const [starredRFPIds, setStarredRFPIds] = useState<Set<string>>(() => {
-    // Load starred RFPs from localStorage on startup
-    const saved = localStorage.getItem('starred_rfp_ids');
-    return saved ? new Set(JSON.parse(saved)) : new Set();
+    return new Set(getStarredRFPs());
   });
   const [selectedRFP, setSelectedRFP] = useState<RFP | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -112,7 +108,8 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   const loadRFPs = async () => {
     try {
       setLoading(true);
-      const rfpsData = await autoLoadRFPs();
+      const response = await getRFPs();
+      const rfpsData = response.rfps;
 
       setRfps(rfpsData);
     } catch (error) {
@@ -250,29 +247,25 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   };
 
   const handleIgnoreRFP = (id: string) => {
-    setIgnoredRFPIds(prev => {
-      const newSet = new Set([...prev, id]);
-      // Save to localStorage for persistence
-      localStorage.setItem('ignored_rfp_ids', JSON.stringify([...newSet]));
-      return newSet;
-    });
-    toast.success('RFP hidden from main view (view ignored RFPs via "View Ignored" button)');
+    const isIgnored = toggleIgnoreRFP(id);
+    setIgnoredRFPIds(new Set(getIgnoredRFPs()));
+    
+    if (isIgnored) {
+      toast.success('RFP hidden from main view (view ignored RFPs via "View Ignored" button)');
+    } else {
+      toast.success('RFP restored to main view');
+    }
   };
 
   const handleToggleStar = (id: string) => {
-    setStarredRFPIds(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        newSet.delete(id);
-        toast.success('RFP unstarred');
-      } else {
-        newSet.add(id);
-        toast.success('RFP starred');
-      }
-      // Save to localStorage for persistence
-      localStorage.setItem('starred_rfp_ids', JSON.stringify([...newSet]));
-      return newSet;
-    });
+    const isStarred = toggleStarRFP(id);
+    setStarredRFPIds(new Set(getStarredRFPs()));
+    
+    if (isStarred) {
+      toast.success('RFP starred');
+    } else {
+      toast.success('RFP unstarred');
+    }
   };
 
   const handleClearFilters = () => {
