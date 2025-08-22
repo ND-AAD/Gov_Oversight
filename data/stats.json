@@ -1,6 +1,6 @@
 {
-  "timestamp": "2025-08-22T12:20:07.849291Z",
-  "last_updated": "2025-08-22T12:20:07.849296Z",
+  "timestamp": "2025-08-22T18:47:14.205644Z",
+  "last_updated": "2025-08-22T18:47:14.205649Z",
   "rfps": {
     "total": 0,
     "olympic_related": 0,
@@ -10,7 +10,7 @@
     "high_value": 0
   },
   "sites": {
-    "total": 1,
+    "total": 2,
     "active": 0,
     "errors": 0
   },
