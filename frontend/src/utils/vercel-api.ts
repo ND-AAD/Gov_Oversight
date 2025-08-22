@@ -201,18 +201,6 @@ export function setStarredRFPs(rfpIds: string[]): void {
   localStorage.setItem('starred_rfp_ids', JSON.stringify(rfpIds));
 }
 
-export function toggleIgnoreRFP(rfpId: string): boolean {
-  const ignored = getIgnoredRFPs();
-  const isCurrentlyIgnored = ignored.includes(rfpId);
-  
-  if (isCurrentlyIgnored) {
-    setIgnoredRFPs(ignored.filter(id => id !== rfpId));
-  } else {
-    setIgnoredRFPs([...ignored, rfpId]);
-  }
-  
-  return !isCurrentlyIgnored;
-}
 
 export function toggleStarRFP(rfpId: string): boolean {
   const starred = getStarredRFPs();

@@ -20,7 +20,7 @@ import {
   TestTube
 } from 'lucide-react';
 import type { SiteConfig } from '../types/rfp';
-import { createSite, getSites, deleteSite, updateSite, triggerScraping } from '../utils/vercel-api';
+import { createSite, getSites, deleteSite, triggerScraping } from '../utils/vercel-api';
 import { toast } from 'sonner';
 
 interface SiteManagementProps {
