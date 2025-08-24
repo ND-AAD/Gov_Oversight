@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2025-08-24T12:18:25.518687",
+    "last_updated": "2025-08-24T00:56:39.781324",
     "total_sites": 1,
     "version": "1.0"
   },
@@ -21,7 +21,7 @@
           "xpath": null,
           "regex_pattern": null,
           "fallback_selectors": [],
-          "last_validated": "2025-08-24T12:18:25.516861",
+          "last_validated": "2025-08-24T00:56:39.779577",
           "validation_errors": [],
           "expected_format": null,
           "status": "working",
@@ -36,7 +36,7 @@
           "xpath": null,
           "regex_pattern": null,
           "fallback_selectors": [],
-          "last_validated": "2025-08-24T12:18:25.516862",
+          "last_validated": "2025-08-24T00:56:39.779578",
           "validation_errors": [],
           "expected_format": null,
           "status": "working",
@@ -51,7 +51,7 @@
           "xpath": null,
           "regex_pattern": null,
           "fallback_selectors": [],
-          "last_validated": "2025-08-24T12:18:25.516863",
+          "last_validated": "2025-08-24T00:56:39.779579",
           "validation_errors": [],
           "expected_format": null,
           "status": "working",
@@ -66,7 +66,7 @@
           "xpath": null,
           "regex_pattern": null,
           "fallback_selectors": [],
-          "last_validated": "2025-08-24T12:18:25.516864",
+          "last_validated": "2025-08-24T00:56:39.779580",
           "validation_errors": [],
           "expected_format": null,
           "status": "working",
